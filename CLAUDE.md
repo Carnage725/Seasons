@@ -31,7 +31,7 @@ You are a senior Android engineer (Kotlin, Jetpack Compose, Room, Glance). You w
 9. **Keep it explained.** After each change, give a 2–3 line summary: what changed, why, and how to verify.
 
 ## Every stage ends with
-- `./gradlew test` passes
+- `./gradlew test` and `./gradlew connectedDebugAndroidTest` pass. Claude runs them itself, plus drives the app over adb to check the stage, before asking me to test.
 - `./gradlew installDebug` succeeds on my phone
 - A "How to test on your phone" checklist (taps, expected result)
 - A git commit with a clear message and don't include co-authored by claude or anything similar (only after I confirm it works)

@@ -10,6 +10,9 @@ class Repository(private val db: AppDatabase) {
     private val settings = db.settingsDao()
     private val summaries = db.seasonSummaryDao()
 
+    suspend fun getTracker(id: Long) = trackers.get(id)
+    suspend fun getLog(id: Long) = logs.get(id)
+
     fun observeTrackers() = trackers.observeAll()
     fun observeTracker(id: Long) = trackers.observe(id)
     fun observeBands(trackerId: Long) = bands.observeFor(trackerId)
@@ -30,6 +33,9 @@ class Repository(private val db: AppDatabase) {
     }
 
     suspend fun updateTracker(tracker: Tracker) = trackers.update(tracker)
+
+    /** Permanent. Also deletes the tracker's logs and band history. */
+    suspend fun deleteTracker(tracker: Tracker) = trackers.delete(tracker)
 
     /** Never rewrites history: adds a row. Same effectiveFrom replaces that one row. */
     suspend fun changeBand(trackerId: Long, effectiveFrom: LocalDate, lower: Double, upper: Double) {

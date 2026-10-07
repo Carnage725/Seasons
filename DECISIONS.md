@@ -17,3 +17,22 @@
 - **Weekly streaks:** a week's band is the band in effect on the week's Monday (or the start date, if the tracker started mid-week). No band row counts as lower = 1. Active days before the start date are ignored.
 - **Streak runs:** an unmet today is left out of the run list rather than ending a run. Yesterday and today both unmet gives current = 0.
 - **`Repository` is not unit-tested in Phase 1.** It needs a real database (instrumented test). Stat logic is pure Kotlin and fully tested.
+
+## Phase 2
+- **Navigation:** plain back stack in a `NavViewModel` (`mutableStateListOf<Screen>`) plus `BackHandler`. No navigation library. Phase 7 deep links push onto the same stack.
+- **Library versions fixed:** activity-compose 1.13.0, lifecycle 2.11.0 (Phase 1 had guessed older ones).
+- **Date picker** returns UTC millis. Converted with `ZoneOffset.UTC`, not the phone zone, to avoid off-by-one days.
+- **Edit tracker** changes name, unit, color, target, deadline only. Type, band period, start date are locked after creation. Band changes come with the Phase 3 "change band" action.
+- **No group field / group headers** until Phase 5.
+- **Home shows ACTIVE trackers only.** Archived and completed ones appear in Phases 5 (archive, trophy shelf).
+- **Home progress bar:** GOAL = done / target. ONGOING daily band = today / upper bound. Otherwise empty.
+- **Weekly streak on Home** shows a `w` suffix (`🔥 3w`).
+- **"Today" on Home** is read when data changes. If the app stays open past midnight, rows refresh on the next change. Widgets and the midnight refresh are Phase 7.
+- **After a log,** the "Logging for" date resets to today so a backfill date is not reused by accident.
+- **Delete log** asks for confirmation. Tracker delete is not offered yet.
+
+## Phase 2 follow-ups
+- **No emojis in the app.** The spec (§7, §8) mentions ✅/❌/🔥. Replaced with text: "Met today" / "Not yet" and "Streak N" ("Streak N wk" for weekly). Met-today text uses the tracker color. Spec file left as written.
+- **Delete tracker** added (asked for explicitly). Lives at the bottom of the Edit screen, behind a confirm dialog. It permanently deletes the tracker, its logs and its band rows (ON DELETE CASCADE). Archive (Phase 5) is the non-destructive option.
+- **Testing:** I run `./gradlew test` and `./gradlew connectedDebugAndroidTest` myself, and drive the app on the phone over adb. `connectedDebugAndroidTest` uninstalls the app when it finishes, so it wipes the app's data on the phone. I reinstall with `installDebug` after.
+- **Instrumented tests** (`app/src/androidTest`) run `Repository` against an in-memory Room database on the phone. Added androidx.test runner 1.7.0 and ext-junit 1.3.0.

@@ -24,6 +24,10 @@ interface TrackerDao {
 
     @Update
     suspend fun update(tracker: Tracker)
+
+    // Logs and band rows go with it (ON DELETE CASCADE).
+    @Delete
+    suspend fun delete(tracker: Tracker)
 }
 
 @Dao
