@@ -105,8 +105,8 @@ private fun finishAt(today: LocalDate, left: Double, rate: Double): LocalDate? {
 
 data class StreakStats(val current: Int, val best: Int, val average: Double)
 
-/** Does [date] count as a streak day? With a band: total >= lower. No band: total > 0. */
-private fun dayCounts(total: Double, band: Band?): Boolean =
+/** Does a day with [total] count as a streak day? With a band: total >= lower. No band: total > 0. */
+fun dayMet(total: Double, band: Band?): Boolean =
     if (band != null) total >= band.lower else total > 0.0
 
 fun dailyStreaks(
@@ -116,7 +116,7 @@ fun dailyStreaks(
     startDate: LocalDate,
     today: LocalDate,
 ): StreakStats {
-    fun counts(d: LocalDate) = dayCounts(totals[d] ?: 0.0, if (useBand) bandOn(bands, d) else null)
+    fun counts(d: LocalDate) = dayMet(totals[d] ?: 0.0, if (useBand) bandOn(bands, d) else null)
 
     // Today still in progress never breaks a streak: if not met yet, look only up to yesterday.
     val lastDay = if (counts(today)) today else today.minusDays(1)

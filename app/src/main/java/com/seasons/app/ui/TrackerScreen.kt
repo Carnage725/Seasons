@@ -45,6 +45,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.LogEntry
+import com.seasons.app.ui.charts.BarChart
+import com.seasons.app.ui.charts.ChartTabs
+import com.seasons.app.ui.charts.OnTrackChart
+import com.seasons.app.ui.charts.SeasonHeatmap
 import java.time.LocalDate
 
 /** Header, status line, today/quick-log, streaks, history. Charts come in Phase 4. */
@@ -251,6 +255,8 @@ fun TrackerScreen(
                     StreakStat("Average", s.streaks.average, s.streaks.unit)
                 }
             }
+            // 5. Charts
+            item { ChartsSection(ui, color, today) }
             // 6. History
             item {
                 Text("History", color = Grey1, style = MaterialTheme.typography.labelLarge)
@@ -261,6 +267,36 @@ fun TrackerScreen(
             items(ui.logs, key = { it.id }) { entry ->
                 HistoryRow(entry, t.unit, today, onEdit = { editingId = entry.id }, onDelete = { deletingId = entry.id })
             }
+        }
+    }
+}
+
+@Composable
+private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
+    val tabs = buildList {
+        add("Daily")
+        add("Weekly")
+        add("Season")
+        if (ui.charts.onTrack != null) add("On track")
+    }
+    var selected by rememberSaveable { mutableStateOf(0) }
+    val index = selected.coerceIn(0, tabs.lastIndex)
+
+    Column {
+        ChartTabs(tabs, index, onSelect = { selected = it })
+        Spacer(Modifier.height(12.dp))
+        when (tabs[index]) {
+            "Daily" -> BarChart(ui.charts.daily, color)
+            "Weekly" -> BarChart(ui.charts.weekly, color)
+            "Season" -> {
+                val season = ui.charts.season
+                if (season == null) {
+                    Text("Season has not started yet.", color = Grey1)
+                } else {
+                    SeasonHeatmap(season, color, ui.tracker.unit, today)
+                }
+            }
+            else -> OnTrackChart(ui.charts.onTrack!!, color)
         }
     }
 }

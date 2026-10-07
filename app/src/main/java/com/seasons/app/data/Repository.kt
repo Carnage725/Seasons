@@ -70,6 +70,11 @@ class Repository(private val db: AppDatabase) {
         settings.upsert(value)
     }
 
+    /** Creates the default settings row (season starts today, 77 days) if there is none yet. */
+    suspend fun ensureSettings(today: LocalDate = LocalDate.now()) {
+        settings.insertIfAbsent(Settings(seasonStartDate = today))
+    }
+
     suspend fun saveSeasonSummary(summary: SeasonSummary) = summaries.insert(summary)
 
     suspend fun addGroup(group: TrackerGroup) = groups.insert(group)

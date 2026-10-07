@@ -5,6 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Tracker
+import com.seasons.app.data.TrackerType
+import com.seasons.app.ui.charts.BarChartModel
+import com.seasons.app.ui.charts.OnTrackModel
+import com.seasons.app.ui.charts.SeasonModel
+import com.seasons.app.ui.charts.buildDailyChart
+import com.seasons.app.ui.charts.buildOnTrackChart
+import com.seasons.app.ui.charts.buildSeasonModel
+import com.seasons.app.ui.charts.buildWeeklyChart
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +29,15 @@ data class TrackerUiState(
     val summary: TrackerSummary,
     /** The band in effect today, to prefill "Change band". */
     val band: Band?,
+    val charts: ChartsData,
+)
+
+/** Null parts: the season chart needs settings (loading), the On track chart is for goals only. */
+data class ChartsData(
+    val daily: BarChartModel,
+    val weekly: BarChartModel,
+    val season: SeasonModel?,
+    val onTrack: OnTrackModel?,
 )
 
 class TrackerViewModel(private val repo: Repository, private val trackerId: Long) : ViewModel() {
@@ -29,20 +46,35 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
         repo.observeTracker(trackerId),
         repo.observeLogs(trackerId),
         repo.observeBands(trackerId),
-    ) { tracker, logs, bands ->
+        repo.observeSettings(),
+    ) { tracker, logs, bands, settings ->
         if (tracker == null) {
             null
         } else {
             val today = LocalDate.now()
             val bandList = bands.toBands()
+            val totals = logs.dailyTotals()
             TrackerUiState(
                 tracker = tracker,
                 logs = logs,
                 summary = buildTrackerSummary(tracker, logs, bandList, today),
                 band = bandOn(bandList, today),
+                charts = ChartsData(
+                    daily = buildDailyChart(tracker, totals, bandList, today),
+                    weekly = buildWeeklyChart(tracker, totals, bandList, today),
+                    season = settings?.let {
+                        buildSeasonModel(tracker, totals, bandList, today, it.seasonStartDate, it.seasonLength)
+                    },
+                    onTrack = if (tracker.type == TrackerType.GOAL) buildOnTrackChart(tracker, totals, bandList, today) else null,
+                ),
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    init {
+        // First use: create the default season settings (starts today, 77 days).
+        viewModelScope.launch { repo.ensureSettings() }
+    }
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error

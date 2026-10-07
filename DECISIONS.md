@@ -46,3 +46,13 @@
 - **Change band:** new row effective from a chosen date (default today, min = start date, future dates allowed). Same-date change replaces that one row. Dialog is prefilled with today's band.
 - **Goal completion** (celebration, "Move to trophy shelf") is left to Phase 5, as agreed. A finished goal shows `Done`, `0 left`.
 - **Test runs may wipe app data on the phone.** Confirmed OK: all data is dummy until the app is complete.
+
+## Phase 4
+- **Chart data is built by pure functions** (`ui/charts/ChartModels.kt`) and unit-tested. `ui/charts/Charts.kt` only draws them with `Canvas`. No chart library.
+- **Tabs** are a plain grey text row (selected = bright + bold). On track shows for GOAL trackers only.
+- **Daily:** 14 bars. Band stripe only for DAILY-band trackers, built per day so it steps when the band changes. Bars below that day's lower bound are dim grey (`#616161`). Only today's bar gets a value label. Band range is labeled at the right end. Bars start at zero, no grid.
+- **Weekly:** 11 Monday-start weeks. WEEKLY-band trackers plot active days with the band stripe, using the band on the week's Monday (same rule as the weekly streak). Weeks before the tracker started get no stripe. Weeks below the lower bound are NOT dimmed (spec only dims on Daily).
+- **Season heatmap:** 7 rows x `ceil(length/7)` columns, filled down each column in season-day order. Shows the season that contains today. Colour = `lerp(#2C2C2C, trackerColor, 0.3 + 0.7 * ratio)`, where `ratio = total / max(that day's upper bound, season max)`. Days that met the streak rule are fully opaque, partial days 55% opaque. Zero days `#2C2C2C`. Future days and days before the tracker started are `#2C2C2C` at 40%. Today has a thin outline. Tap a day to see its date and value.
+- **Default settings:** on first use, a Settings row is created with season start = today and length 77 (`insertIfAbsent`, so it never overwrites). Phase 6 adds the screen to change them. The heatmap therefore starts almost empty on a fresh install.
+- **On track:** cumulative line in the tracker color from the start date to today. Grey dashed line = needed pace (start,0 to deadline,target) with a deadline, or projection (today's total to projected finish at target) without one. The projection uses the spec's rule (band lower bound, otherwise pace). No projection line when pace is 0 or the goal is done. End labels are direct. The cumulative label has a background patch so the dashed line does not cross it.
+- **Testing the charts:** I seeded a dummy database with 4 trackers (goal with deadline, daily-band ongoing with a band change, weekly-band ongoing, goal with band) by editing the app's database over adb, then read screenshots of every tab.
