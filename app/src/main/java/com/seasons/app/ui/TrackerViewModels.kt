@@ -18,7 +18,8 @@ import java.time.LocalDate
 data class TrackerUiState(
     val tracker: Tracker,
     val logs: List<LogEntry>,
-    val todayTotal: Double,
+    val summary: TrackerSummary,
+    /** The band in effect today, to prefill "Change band". */
     val band: Band?,
 )
 
@@ -33,11 +34,12 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
             null
         } else {
             val today = LocalDate.now()
+            val bandList = bands.toBands()
             TrackerUiState(
                 tracker = tracker,
                 logs = logs,
-                todayTotal = logs.filter { it.date == today }.sumOf { it.amount },
-                band = bandOn(bands.toBands(), today),
+                summary = buildTrackerSummary(tracker, logs, bandList, today),
+                band = bandOn(bandList, today),
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -52,6 +54,9 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
     fun addLog(date: LocalDate, amount: Double) = launchSafely { repo.addLog(trackerId, date, amount) }
 
     fun editLog(entry: LogEntry, date: LocalDate, amount: Double) = launchSafely { repo.editLog(entry, date, amount) }
+
+    fun changeBand(effectiveFrom: LocalDate, lower: Double, upper: Double) =
+        launchSafely { repo.changeBand(trackerId, effectiveFrom, lower, upper) }
 
     fun deleteLog(entry: LogEntry) = launchSafely { repo.deleteLog(entry) }
 

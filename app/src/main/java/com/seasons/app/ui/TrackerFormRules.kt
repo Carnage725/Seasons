@@ -55,12 +55,16 @@ fun validateTracker(input: TrackerFormInput, today: LocalDate, editing: Boolean)
     if (input.bandPeriod !in allowedBandPeriods(input.type)) {
         return "A ${input.type.name.lowercase()} cannot use a ${input.bandPeriod.name.lowercase()} band"
     }
-    if (input.bandPeriod != BandPeriod.NONE) {
-        val lower = parseAmount(input.lower) ?: return "Enter a lower bound"
-        val upper = parseAmount(input.upper) ?: return "Enter an upper bound"
-        if (lower < 0) return "Lower bound cannot be negative"
-        if (upper < lower) return "Upper bound must be at least the lower bound"
-        if (input.bandPeriod == BandPeriod.WEEKLY && upper > 7) return "Active days per week cannot be more than 7"
-    }
+    return validateBandBounds(input.bandPeriod, input.lower, input.upper)
+}
+
+/** Returns an error message, or null. NONE has nothing to check. */
+fun validateBandBounds(period: BandPeriod, lowerText: String, upperText: String): String? {
+    if (period == BandPeriod.NONE) return null
+    val lower = parseAmount(lowerText) ?: return "Enter a lower bound"
+    val upper = parseAmount(upperText) ?: return "Enter an upper bound"
+    if (lower < 0) return "Lower bound cannot be negative"
+    if (upper < lower) return "Upper bound must be at least the lower bound"
+    if (period == BandPeriod.WEEKLY && upper > 7) return "Active days per week cannot be more than 7"
     return null
 }

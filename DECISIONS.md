@@ -36,3 +36,13 @@
 - **Delete tracker** added (asked for explicitly). Lives at the bottom of the Edit screen, behind a confirm dialog. It permanently deletes the tracker, its logs and its band rows (ON DELETE CASCADE). Archive (Phase 5) is the non-destructive option.
 - **Testing:** I run `./gradlew test` and `./gradlew connectedDebugAndroidTest` myself, and drive the app on the phone over adb. `connectedDebugAndroidTest` uninstalls the app when it finishes, so it wipes the app's data on the phone. I reinstall with `installDebug` after.
 - **Instrumented tests** (`app/src/androidTest`) run `Repository` against an in-memory Room database on the phone. Added androidx.test runner 1.7.0 and ext-junit 1.3.0.
+
+## Phase 3
+- **Tracker header** is built by a pure function (`buildTrackerSummary`, `ui/TrackerSummary.kt`) so every text is unit-tested. GOAL: `done / target unit`, then `N left · P%`. ONGOING daily: `today / lower–upper unit`. ONGOING weekly: `active days this week / lower–upper days`.
+- **Status line** is shown for GOAL only. Three forms (deadline, daily band, none) as in spec §5. "On track" uses the tracker color, "Behind" uses amber, "Done" is plain. Pace 0 gives `finish —`.
+- **Percent** is rounded to a whole number and can pass 100 when over target. The progress bar is capped at full.
+- **Streaks** shown as Current / Best / Average with the unit (days, or weeks for weekly bands). Average has one decimal.
+- **Menu** (top right "Menu"): Edit tracker, Change band. Change band only appears when the tracker has a band. A GOAL with no band cannot add one later (not in the spec). Archive joins the menu in Phase 5.
+- **Change band:** new row effective from a chosen date (default today, min = start date, future dates allowed). Same-date change replaces that one row. Dialog is prefilled with today's band.
+- **Goal completion** (celebration, "Move to trophy shelf") is left to Phase 5, as agreed. A finished goal shows `Done`, `0 left`.
+- **Test runs may wipe app data on the phone.** Confirmed OK: all data is dummy until the app is complete.

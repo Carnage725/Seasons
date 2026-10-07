@@ -12,6 +12,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.seasons.app.data.BandPeriod
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -149,6 +151,85 @@ fun EditLogDialog(
                 enabled = amount != null && amount > 0,
                 onClick = {
                     onSave(date, amount!!)
+                    onDismiss()
+                },
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Adds a new band row. Old rows stay, so history is never rewritten. */
+@Composable
+fun ChangeBandDialog(
+    period: BandPeriod,
+    initialLower: Double?,
+    initialUpper: Double?,
+    startDate: LocalDate,
+    today: LocalDate,
+    onSave: (LocalDate, Double, Double) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var lower by rememberSaveable { mutableStateOf(initialLower?.let { formatAmount(it) } ?: "") }
+    var upper by rememberSaveable { mutableStateOf(initialUpper?.let { formatAmount(it) } ?: "") }
+    var date by rememberSaveable { mutableStateOf(today) }
+    var picking by rememberSaveable { mutableStateOf(false) }
+    val error = validateBandBounds(period, lower, upper)
+
+    if (picking) {
+        DatePickerModal(
+            initial = date,
+            min = startDate,
+            max = null,
+            onPick = { date = it },
+            onDismiss = { picking = false },
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Change band") },
+        text = {
+            Column {
+                Row {
+                    OutlinedTextField(
+                        value = lower,
+                        onValueChange = { lower = it },
+                        singleLine = true,
+                        label = { Text("Lower") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    OutlinedTextField(
+                        value = upper,
+                        onValueChange = { upper = it },
+                        singleLine = true,
+                        label = { Text("Upper") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                }
+                Text(
+                    if (period == BandPeriod.WEEKLY) "active days per week" else "per day",
+                    color = Grey1,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("Effective from", color = Grey1, style = MaterialTheme.typography.labelLarge)
+                TextButton(onClick = { picking = true }) { Text(formatDate(date, today)) }
+                Text("Earlier days keep their old band.", color = Grey1, style = MaterialTheme.typography.bodySmall)
+                if (error != null && (lower.isNotBlank() || upper.isNotBlank())) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(error, color = Amber)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = error == null,
+                onClick = {
+                    onSave(date, parseAmount(lower)!!, parseAmount(upper)!!)
                     onDismiss()
                 },
             ) { Text("Save") }
