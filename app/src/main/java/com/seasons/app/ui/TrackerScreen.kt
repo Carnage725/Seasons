@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.LogEntry
+import com.seasons.app.data.TrackerStatus
 import com.seasons.app.ui.charts.BarChart
 import com.seasons.app.ui.charts.ChartTabs
 import com.seasons.app.ui.charts.OnTrackChart
@@ -70,6 +71,7 @@ fun TrackerScreen(
     var deletingId by rememberSaveable { mutableStateOf<Long?>(null) }
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var changingBand by rememberSaveable { mutableStateOf(false) }
+    var confirmArchive by rememberSaveable { mutableStateOf(false) }
 
     if (ui == null) {
         Box(Modifier.fillMaxSize().padding(24.dp)) {
@@ -102,6 +104,17 @@ fun TrackerScreen(
                 logDate = today
             },
             onDismiss = { customOpen = false },
+        )
+    }
+    if (confirmArchive) {
+        AlertDialog(
+            onDismissRequest = { confirmArchive = false },
+            title = { Text("Archive \"${t.name}\"?") },
+            text = { Text("It leaves Home. Nothing is deleted. Bring it back from Archive on Home.") },
+            confirmButton = {
+                TextButton(onClick = { vm.archive(ui.tracker, onBack) }) { Text("Archive") }
+            },
+            dismissButton = { TextButton(onClick = { confirmArchive = false }) { Text("Cancel") } },
         )
     }
     if (changingBand) {
@@ -171,6 +184,15 @@ fun TrackerScreen(
                                     onEdit(t.id)
                                 },
                             )
+                            if (t.status == TrackerStatus.ACTIVE) {
+                                DropdownMenuItem(
+                                    text = { Text("Archive") },
+                                    onClick = {
+                                        menuOpen = false
+                                        confirmArchive = true
+                                    },
+                                )
+                            }
                             if (t.bandPeriod != BandPeriod.NONE) {
                                 DropdownMenuItem(
                                     text = { Text("Change band") },
@@ -206,6 +228,20 @@ fun TrackerScreen(
                     )
                 }
             }
+            // Goal reached: celebrate and offer the trophy shelf.
+            if (t.status == TrackerStatus.ACTIVE && s.status?.kind == StatusKind.DONE) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Goal reached", color = color, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Text("You hit ${formatAmount(t.target ?: 0.0)} ${t.unit}. Well done.", color = Grey1)
+                        Button(
+                            onClick = { vm.complete(ui.tracker, onBack) },
+                            colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.Black),
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                        ) { Text("Move to trophy shelf", fontWeight = FontWeight.Medium) }
+                    }
+                }
+            }
             // 2. Status line
             s.status?.let { st ->
                 item {
@@ -237,8 +273,12 @@ fun TrackerScreen(
                             vm.addLog(logDate, 5.0)
                             logDate = today
                         }
-                        OutlinedButton(onClick = { customOpen = true }, modifier = Modifier.weight(1f).height(52.dp)) {
-                            Text("Custom")
+                        OutlinedButton(
+                            onClick = { customOpen = true },
+                            modifier = Modifier.weight(1f).height(52.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp),
+                        ) {
+                            Text("Custom", maxLines = 1)
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {

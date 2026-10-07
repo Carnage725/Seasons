@@ -56,3 +56,15 @@
 - **Default settings:** on first use, a Settings row is created with season start = today and length 77 (`insertIfAbsent`, so it never overwrites). Phase 6 adds the screen to change them. The heatmap therefore starts almost empty on a fresh install.
 - **On track:** cumulative line in the tracker color from the start date to today. Grey dashed line = needed pace (start,0 to deadline,target) with a deadline, or projection (today's total to projected finish at target) without one. The projection uses the spec's rule (band lower bound, otherwise pace). No projection line when pace is 0 or the goal is done. End labels are direct. The cumulative label has a background patch so the dashed line does not cross it.
 - **Testing the charts:** I seeded a dummy database with 4 trackers (goal with deadline, daily-band ongoing with a band change, weekly-band ongoing, goal with band) by editing the app's database over adb, then read screenshots of every tab.
+
+## Phase 5
+- **Groups:** Groups screen (create, open), group detail (rename/recolor via "Edit group", **Delete group** in its menu), reorder with Up/Down buttons. Delete only removes the group. Its trackers stay and become ungrouped (`ON DELETE SET NULL`). Asked for by you. The spec's "combined widget preview" on the group page waits for Phase 7.
+- **Group order:** `sortOrder` is rewritten as 0, 1, 2... on every move. New groups go to the end.
+- **Tracker group** is a chip row on the create/edit form (None + each group). The row is hidden if no groups exist. Editing can change the group.
+- **Home:** group headers (color dot + name) in group order, ungrouped trackers last under "Ungrouped". Headers appear only if at least one group exists. Groups with no active trackers are not shown.
+- **Home links** (Groups, Trophies, Archive) are text buttons under the title. Settings joins them in Phase 6.
+- **Goal reached:** when `done >= target` on an ACTIVE goal, the tracker screen shows "Goal reached" and a **Move to trophy shelf** button. It sets COMPLETED and `completedDate` = today (the day you tap it). No "move back" action.
+- **Trophy shelf:** 2-column grid. Card: name, color bar, total + unit, days taken (inclusive of both dates), `start -> finish`, best streak. Total and best streak ignore logs after the finish date. Tap opens the normal tracker screen.
+- **Archive:** "Archive" in the tracker menu (with confirm). Archive screen lists archived trackers. Tap gives "Continue where you left off" (status back to ACTIVE, all logs kept; the days away count as missed for streaks) or "Start fresh".
+- **Start fresh** copies name, unit, type, color, group, target, band period and the band in effect today. Start date = today. The deadline is copied only if it is today or later. The old tracker stays archived with its logs.
+- **Visual fixes:** the + button was the default purple. Now grey (`#2C2C2C`) with light text, so only trackers carry color. The "Custom" button wrapped its text ("Custo / m"). It now stays on one line.

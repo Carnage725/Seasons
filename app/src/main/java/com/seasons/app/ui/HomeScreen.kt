@@ -22,6 +22,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -36,30 +37,50 @@ import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.TrackerType
 
 @Composable
-fun HomeScreen(vm: HomeViewModel, onOpen: (Long) -> Unit, onNew: () -> Unit) {
-    val rows by vm.rows.collectAsStateWithLifecycle()
+fun HomeScreen(
+    vm: HomeViewModel,
+    onOpen: (Long) -> Unit,
+    onNew: () -> Unit,
+    onGroups: () -> Unit,
+    onTrophies: () -> Unit,
+    onArchive: () -> Unit,
+) {
+    val sections by vm.sections.collectAsStateWithLifecycle()
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onNew) { Text("+", fontSize = 24.sp) }
+            FloatingActionButton(onClick = onNew, containerColor = Grey3, contentColor = TextMain) {
+                Text("+", fontSize = 24.sp)
+            }
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            val list = rows
-            when {
-                list == null -> Unit
-                list.isEmpty() -> Text(
-                    "No trackers yet.\nTap + to add one.",
-                    color = Grey1,
-                    modifier = Modifier.padding(24.dp),
-                )
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                ) {
-                    item {
+            val list = sections
+            LazyColumn(
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                item {
+                    Column {
                         Text("Seasons", style = MaterialTheme.typography.headlineMedium, color = Grey1)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = onGroups) { Text("Groups") }
+                            TextButton(onClick = onTrophies) { Text("Trophies") }
+                            TextButton(onClick = onArchive) { Text("Archive") }
+                        }
                     }
-                    items(list, key = { it.tracker.id }) { row ->
+                }
+                if (list != null && list.isEmpty()) {
+                    item { Text("No trackers yet.\nTap + to add one.", color = Grey1) }
+                }
+                // Headers only when at least one group exists.
+                val showHeaders = list?.any { it.group != null } == true
+                list?.forEach { section ->
+                    if (showHeaders) {
+                        item(key = "header-${section.group?.id ?: "none"}") {
+                            SectionHeader(section.group)
+                        }
+                    }
+                    items(section.rows, key = { it.tracker.id }) { row ->
                         TrackerRow(row, onClick = { onOpen(row.tracker.id) })
                     }
                 }
@@ -69,7 +90,18 @@ fun HomeScreen(vm: HomeViewModel, onOpen: (Long) -> Unit, onNew: () -> Unit) {
 }
 
 @Composable
-private fun TrackerRow(row: HomeRow, onClick: () -> Unit) {
+private fun SectionHeader(group: com.seasons.app.data.TrackerGroup?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (group != null) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(Color(group.color)))
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(group?.name ?: "Ungrouped", color = Grey1, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+internal fun TrackerRow(row: HomeRow, onClick: () -> Unit) {
     val t = row.tracker
     val color = Color(t.color)
     val main = if (t.type == TrackerType.GOAL) {

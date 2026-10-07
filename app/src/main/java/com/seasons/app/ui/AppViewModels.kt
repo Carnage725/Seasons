@@ -13,6 +13,10 @@ sealed interface Screen {
     data object Home : Screen
     data class TrackerForm(val trackerId: Long?) : Screen
     data class TrackerDetail(val trackerId: Long) : Screen
+    data object Groups : Screen
+    data class GroupDetail(val groupId: Long) : Screen
+    data object Trophies : Screen
+    data object Archive : Screen
 }
 
 /** A plain back stack. Lives in a ViewModel so it survives rotation. */

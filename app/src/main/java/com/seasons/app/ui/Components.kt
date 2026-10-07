@@ -1,8 +1,21 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.seasons.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -230,6 +243,88 @@ fun ChangeBandDialog(
                 enabled = error == null,
                 onClick = {
                     onSave(date, parseAmount(lower)!!, parseAmount(upper)!!)
+                    onDismiss()
+                },
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+
+/** Back link plus a screen title. */
+@Composable
+fun ScreenHeader(title: String, onBack: () -> Unit) {
+    Column {
+        Row { TextButton(onClick = onBack) { Text("‹ Back") } }
+        Text(title, style = MaterialTheme.typography.headlineMedium)
+    }
+}
+
+/** 16 dark-friendly colors plus a hex field. */
+@Composable
+fun ColorPicker(color: Int, onColor: (Int) -> Unit) {
+    var hex by rememberSaveable { mutableStateOf("") }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ColorPalette.forEach { c ->
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(c))
+                        .border(if (c == color) 3.dp else 0.dp, if (c == color) Color.White else Color.Transparent, CircleShape)
+                        .clickable { onColor(c) },
+                )
+            }
+        }
+        OutlinedTextField(
+            value = hex,
+            onValueChange = {
+                hex = it
+                parseHexColor(it)?.let(onColor)
+            },
+            singleLine = true,
+            label = { Text("Or hex, e.g. #FF8800") },
+            isError = hex.isNotBlank() && parseHexColor(hex) == null,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(20.dp).clip(CircleShape).background(Color(color)))
+            Spacer(Modifier.width(8.dp))
+            Text("Selected color", color = Grey1)
+        }
+    }
+}
+
+/** Create or rename/recolor a group. */
+@Composable
+fun GroupDialog(
+    title: String,
+    initialName: String,
+    initialColor: Int,
+    onSave: (String, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf(initialName) }
+    var color by rememberSaveable { mutableStateOf(initialColor) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it }, singleLine = true,
+                    label = { Text("Group name") }, modifier = Modifier.fillMaxWidth(),
+                )
+                ColorPicker(color) { color = it }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = name.isNotBlank(),
+                onClick = {
+                    onSave(name, color)
                     onDismiss()
                 },
             ) { Text("Save") }

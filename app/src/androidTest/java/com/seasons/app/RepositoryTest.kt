@@ -164,4 +164,92 @@ class RepositoryTest {
         expectFailure { repo.saveSettings(Settings(seasonStartDate = today, seasonLength = 366)) }
         assertEquals(90, repo.observeSettings().first()!!.seasonLength)
     }
+
+    // ---------- groups ----------
+
+    @Test fun groups_addGetIncreasingSortOrder_andMoveIsSaved() = runBlocking {
+        val a = repo.addGroup("A", 1)
+        val b = repo.addGroup("B", 2)
+        val c = repo.addGroup("C", 3)
+        assertEquals(listOf(a, b, c), repo.observeGroups().first().map { it.id })
+
+        repo.moveGroup(c, up = true)
+        assertEquals(listOf(a, c, b), repo.observeGroups().first().map { it.id })
+        repo.moveGroup(a, up = true) // already first: no change
+        assertEquals(listOf(a, c, b), repo.observeGroups().first().map { it.id })
+    }
+
+    @Test fun groups_renameRecolor() = runBlocking {
+        val id = repo.addGroup("Old", 1)
+        repo.updateGroup(repo.observeGroups().first().first { it.id == id }.copy(name = "New", color = 9))
+        val g = repo.observeGroups().first().first { it.id == id }
+        assertEquals("New", g.name)
+        assertEquals(9, g.color)
+    }
+
+    @Test fun groups_trackerAssignment_andDeleteGroupKeepsTrackers() = runBlocking {
+        val g = repo.addGroup("Study", 1)
+        val keep = repo.createTracker(goal().copy(groupId = g), null, null)
+        val other = repo.createTracker(goal(), null, null)
+        repo.addLog(keep, today, 3.0, today)
+        assertEquals(g, repo.getTracker(keep)!!.groupId)
+        assertNull(repo.getTracker(other)!!.groupId)
+
+        repo.deleteGroup(repo.observeGroups().first().first { it.id == g })
+
+        assertTrue(repo.observeGroups().first().isEmpty())
+        assertNotNull(repo.getTracker(keep))
+        assertNull(repo.getTracker(keep)!!.groupId)
+        assertEquals(1, repo.observeLogs(keep).first().size)
+    }
+
+    // ---------- archive ----------
+
+    @Test fun archive_thenContinue_keepsEverything() = runBlocking {
+        val id = repo.createTracker(ongoing(), 3.0, 6.0)
+        repo.addLog(id, today, 4.0, today)
+        repo.archiveTracker(repo.getTracker(id)!!)
+        assertEquals(TrackerStatus.ARCHIVED, repo.getTracker(id)!!.status)
+
+        repo.unarchiveContinue(repo.getTracker(id)!!)
+
+        val t = repo.getTracker(id)!!
+        assertEquals(TrackerStatus.ACTIVE, t.status)
+        assertEquals(1, repo.observeLogs(id).first().size)
+        assertEquals(1, repo.observeBands(id).first().size)
+    }
+
+    @Test fun archive_startFresh_makesNewTrackerAndKeepsOldAsHistory() = runBlocking {
+        val g = repo.addGroup("Fitness", 1)
+        val id = repo.createTracker(ongoing().copy(groupId = g), 3.0, 6.0)
+        repo.changeBand(id, today.minusDays(2), 5.0, 8.0) // latest band at "today"
+        repo.addLog(id, today, 4.0, today)
+        repo.archiveTracker(repo.getTracker(id)!!)
+
+        val newId = repo.startFresh(repo.getTracker(id)!!, today)
+
+        assertTrue(newId != id)
+        val fresh = repo.getTracker(newId)!!
+        assertEquals(TrackerStatus.ACTIVE, fresh.status)
+        assertEquals(today, fresh.startDate)
+        assertEquals("Run", fresh.name)
+        assertEquals(g, fresh.groupId)
+        assertTrue(repo.observeLogs(newId).first().isEmpty())
+        val bands = repo.observeBands(newId).first()
+        assertEquals(1, bands.size)
+        assertEquals(5.0, bands[0].lower, 0.0)
+        assertEquals(8.0, bands[0].upper, 0.0)
+        assertEquals(today, bands[0].effectiveFrom)
+
+        val old = repo.getTracker(id)!!
+        assertEquals(TrackerStatus.ARCHIVED, old.status)
+        assertEquals(1, repo.observeLogs(id).first().size)
+    }
+
+    @Test fun startFresh_goalWithoutBand_hasNoBandRows() = runBlocking {
+        val id = repo.createTracker(goal(), null, null)
+        val newId = repo.startFresh(repo.getTracker(id)!!, today)
+        assertTrue(repo.observeBands(newId).first().isEmpty())
+        assertEquals(200.0, repo.getTracker(newId)!!.target!!, 0.0)
+    }
 }

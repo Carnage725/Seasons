@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -90,7 +91,7 @@ private fun TrackerFormContent(
     var upper by rememberSaveable { mutableStateOf("") }
     var startDate by rememberSaveable { mutableStateOf(existing?.startDate ?: today) }
     var color by rememberSaveable { mutableStateOf(existing?.color ?: ColorPalette[0]) }
-    var hex by rememberSaveable { mutableStateOf("") }
+    var groupId by rememberSaveable { mutableStateOf(existing?.groupId) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var pickingDeadline by rememberSaveable { mutableStateOf(false) }
     var pickingStart by rememberSaveable { mutableStateOf(false) }
@@ -224,35 +225,19 @@ private fun TrackerFormContent(
                 }
             }
 
-            Label("Color")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ColorPalette.forEach { c ->
-                    Box(
-                        Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(c))
-                            .border(if (c == color) 3.dp else 0.dp, if (c == color) Color.White else Color.Transparent, CircleShape)
-                            .clickable { color = c },
-                    )
+            val groups by vm.groups.collectAsStateWithLifecycle()
+            if (groups.isNotEmpty()) {
+                Label("Group")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = groupId == null, onClick = { groupId = null }, label = { Text("None") })
+                    groups.forEach { g ->
+                        FilterChip(selected = groupId == g.id, onClick = { groupId = g.id }, label = { Text(g.name) })
+                    }
                 }
             }
-            OutlinedTextField(
-                value = hex,
-                onValueChange = {
-                    hex = it
-                    parseHexColor(it)?.let { parsed -> color = parsed }
-                },
-                singleLine = true,
-                label = { Text("Or hex, e.g. #FF8800") },
-                isError = hex.isNotBlank() && parseHexColor(hex) == null,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Box(Modifier.size(20.dp).clip(CircleShape).background(Color(color)))
-                Spacer(Modifier.width(8.dp))
-                Text("Selected color", color = Grey1)
-            }
+
+            Label("Color")
+            ColorPicker(color) { color = it }
 
             error?.let { Text(it, color = Amber) }
 
@@ -267,6 +252,7 @@ private fun TrackerFormContent(
                                     name = name.trim(),
                                     unit = unit.trim(),
                                     color = color,
+                                    groupId = groupId,
                                     target = if (type == TrackerType.GOAL) parseAmount(target) else null,
                                     deadline = if (type == TrackerType.GOAL) deadline else null,
                                 ),
@@ -280,6 +266,7 @@ private fun TrackerFormContent(
                                     unit = unit.trim(),
                                     type = type,
                                     color = color,
+                                    groupId = groupId,
                                     target = if (type == TrackerType.GOAL) parseAmount(target) else null,
                                     deadline = if (type == TrackerType.GOAL) deadline else null,
                                     bandPeriod = bandPeriod,

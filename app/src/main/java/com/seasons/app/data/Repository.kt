@@ -77,8 +77,36 @@ class Repository(private val db: AppDatabase) {
 
     suspend fun saveSeasonSummary(summary: SeasonSummary) = summaries.insert(summary)
 
-    suspend fun addGroup(group: TrackerGroup) = groups.insert(group)
+    suspend fun addGroup(name: String, color: Int): Long =
+        groups.insert(TrackerGroup(name = name, color = color, sortOrder = groups.maxSortOrder() + 1))
+
     suspend fun updateGroup(group: TrackerGroup) = groups.update(group)
+
+    /** Deletes only the group. Its trackers stay and become ungrouped. */
+    suspend fun deleteGroup(group: TrackerGroup) = groups.delete(group)
+
+    /** Moves a group one place up or down. Rewrites sortOrder as 0, 1, 2... */
+    suspend fun moveGroup(id: Long, up: Boolean) {
+        val before = groups.getAll()
+        swapGroupOrder(before, id, up).forEach { g ->
+            if (before.first { it.id == g.id }.sortOrder != g.sortOrder) groups.update(g)
+        }
+    }
+
+    suspend fun archiveTracker(tracker: Tracker) = trackers.update(tracker.copy(status = TrackerStatus.ARCHIVED))
+
+    /** "Continue where you left off": same tracker, all logs kept. */
+    suspend fun unarchiveContinue(tracker: Tracker) = trackers.update(tracker.copy(status = TrackerStatus.ACTIVE))
+
+    /** "Start fresh": a new tracker with the same settings. The old one stays archived. Returns the new id. */
+    suspend fun startFresh(old: Tracker, today: LocalDate = LocalDate.now()): Long {
+        val band = if (old.bandPeriod == BandPeriod.NONE) {
+            null
+        } else {
+            bands.getFor(old.id).filter { !it.effectiveFrom.isAfter(today) }.maxByOrNull { it.effectiveFrom }
+        }
+        return createTracker(freshCopy(old, today), band?.lower, band?.upper)
+    }
 
     private fun validateLog(startDate: LocalDate, date: LocalDate, amount: Double, today: LocalDate) {
         require(amount > 0) { "Amount must be positive" }

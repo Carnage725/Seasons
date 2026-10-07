@@ -35,6 +35,9 @@ interface BandDao {
     @Query("SELECT * FROM band_history WHERE trackerId = :trackerId ORDER BY effectiveFrom")
     fun observeFor(trackerId: Long): Flow<List<BandHistory>>
 
+    @Query("SELECT * FROM band_history WHERE trackerId = :trackerId ORDER BY effectiveFrom")
+    suspend fun getFor(trackerId: Long): List<BandHistory>
+
     @Query("SELECT * FROM band_history ORDER BY trackerId, effectiveFrom")
     fun observeAll(): Flow<List<BandHistory>>
 
@@ -69,11 +72,21 @@ interface GroupDao {
     @Query("SELECT * FROM groups ORDER BY sortOrder, id")
     fun observeAll(): Flow<List<TrackerGroup>>
 
+    @Query("SELECT * FROM groups ORDER BY sortOrder, id")
+    suspend fun getAll(): List<TrackerGroup>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM groups")
+    suspend fun maxSortOrder(): Int
+
     @Insert
     suspend fun insert(group: TrackerGroup): Long
 
     @Update
     suspend fun update(group: TrackerGroup)
+
+    // Trackers in the group stay; their groupId becomes null (ON DELETE SET NULL).
+    @Delete
+    suspend fun delete(group: TrackerGroup)
 }
 
 @Dao

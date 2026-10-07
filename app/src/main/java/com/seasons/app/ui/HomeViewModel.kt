@@ -13,6 +13,7 @@ import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dailyStreaks
 import com.seasons.app.domain.weeklyStreaks
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -57,18 +58,25 @@ fun buildHomeRow(tracker: Tracker, logs: List<LogEntry>, bands: List<Band>, toda
     return HomeRow(tracker, done, todayTotal, band, met, streak, progress)
 }
 
+/** Active trackers as Home rows. Shared by Home and the group screens. */
+fun Repository.observeHomeRows(): Flow<List<HomeRow>> = combine(
+    observeTrackers(),
+    observeAllBands(),
+    observeAllLogs(),
+) { trackers, bands, logs ->
+    val today = LocalDate.now()
+    val logsByTracker = logs.groupBy { it.trackerId }
+    val bandsByTracker = bands.groupBy { it.trackerId }
+    trackers.filter { it.status == TrackerStatus.ACTIVE }.map {
+        buildHomeRow(it, logsByTracker[it.id].orEmpty(), bandsByTracker[it.id].orEmpty().toBands(), today)
+    }
+}
+
 class HomeViewModel(repo: Repository) : ViewModel() {
     /** Null while loading. */
-    val rows: StateFlow<List<HomeRow>?> = combine(
-        repo.observeTrackers(),
-        repo.observeAllBands(),
-        repo.observeAllLogs(),
-    ) { trackers, bands, logs ->
-        val today = LocalDate.now()
-        val logsByTracker = logs.groupBy { it.trackerId }
-        val bandsByTracker = bands.groupBy { it.trackerId }
-        trackers.filter { it.status == TrackerStatus.ACTIVE }.map {
-            buildHomeRow(it, logsByTracker[it.id].orEmpty(), bandsByTracker[it.id].orEmpty().toBands(), today)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val sections: StateFlow<List<HomeSection>?> = combine(
+        repo.observeHomeRows(),
+        repo.observeGroups(),
+    ) { rows, groups -> buildSections(groups, rows) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 }
