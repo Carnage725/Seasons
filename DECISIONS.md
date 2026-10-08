@@ -119,3 +119,10 @@
 - **Widget picker previews** (vector drawables) for both widgets.
 - **Left as is:** amber for Delete buttons and error text (it is the only warning color), free-text units ("1 sessions"), and no app icon (not in the spec).
 - **System font size:** while testing I changed the phone's font size to 2.0 and 1.0, then set it back to your original 1.15.
+
+## Release build
+- **Version 1.0** (`versionCode 1`). Built with `./gradlew assembleRelease`, output `app/build/outputs/apk/release/app-release.apk`, copied to `~/Desktop/Seasons-release/seasons-1.0.apk`.
+- **Signing:** a new key, `~/.seasons-signing/seasons-release.jks` (RSA 2048, valid 10000 days, alias `seasons`). Its passwords are in `keystore.properties` in the project root. Both are git-ignored (`keystore.properties`, `*.jks`, `*.keystore`) and the key is outside the project. **Back the key up.** A release build signed with a different key cannot update an installed one; you would have to uninstall it first and lose its data. If `keystore.properties` is missing, `assembleRelease` makes an unsigned APK.
+- **Code shrinking (R8) is off.** Room, Glance and WorkManager use generated and reflective code, and a shrunk build that crashes on a widget tap is worse than a few extra MB. APK is about 10 MB.
+- **Permissions in the APK:** wake lock, network state, boot completed and foreground service (all added by WorkManager). No internet permission.
+- **A release build cannot be installed over the debug build** (different signing key). The debug app has to be uninstalled first, which deletes its data. Export a backup first (Settings -> Backup).

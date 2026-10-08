@@ -6,3 +6,7 @@ local.properties
 .DS_Store
 .kotlin/
 captures/
+
+keystore.properties
+*.jks
+*.keystore
