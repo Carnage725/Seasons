@@ -1,5 +1,7 @@
 package com.seasons.app.data
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 
 class Repository(private val db: AppDatabase) {
@@ -70,9 +72,85 @@ class Repository(private val db: AppDatabase) {
         settings.upsert(value)
     }
 
-    /** Creates the default settings row (season starts today, 77 days) if there is none yet. */
-    suspend fun ensureSettings(today: LocalDate = LocalDate.now()) {
-        settings.insertIfAbsent(Settings(seasonStartDate = today))
+    /** First launch: stores the season start and length. Does nothing if settings already exist. */
+    suspend fun saveFirstSettings(seasonStart: LocalDate, seasonLength: Int) {
+        require(seasonLength in Settings.MIN_SEASON_LENGTH..Settings.MAX_SEASON_LENGTH) {
+            "Season length must be ${Settings.MIN_SEASON_LENGTH}-${Settings.MAX_SEASON_LENGTH}"
+        }
+        settings.insertIfAbsent(Settings(seasonStartDate = seasonStart, seasonLength = seasonLength))
+    }
+
+    private val seasonLock = Mutex()
+
+    /** Saves a frozen snapshot for every season that has ended and has none yet. Safe to call many times. */
+    suspend fun closeFinishedSeasons(today: LocalDate = LocalDate.now()) =
+        seasonLock.withLock { closeFinishedLocked(today) }
+
+    private suspend fun closeFinishedLocked(today: LocalDate) {
+        val s = settings.get() ?: return
+        val windows = finishedWindows(s.seasonStartDate, s.seasonLength, today)
+        if (windows.isEmpty()) return
+        val existing = summaries.getAll()
+        val have = existing.map { it.startDate }.toSet()
+        val missing = windows.filter { it.start !in have }
+        if (missing.isEmpty()) return
+
+        val base = seasonBase(existing, s.seasonStartDate)
+        val allTrackers = trackers.getAll()
+        val allLogs = logs.getAll()
+        val allBands = bands.getAll()
+        missing.forEach { w ->
+            saveSnapshot(base + w.number, w.start, w.end, s.seasonLength, allTrackers, allLogs, allBands, today)
+        }
+    }
+
+    private suspend fun saveSnapshot(
+        number: Int,
+        start: LocalDate,
+        end: LocalDate,
+        length: Int,
+        allTrackers: List<Tracker>,
+        allLogs: List<LogEntry>,
+        allBands: List<BandHistory>,
+        today: LocalDate,
+    ) {
+        val payload = buildSeasonPayload(allTrackers, allLogs, allBands, start, end, today)
+        summaries.insert(
+            SeasonSummary(seasonNumber = number, startDate = start, endDate = end, length = length, payloadJson = payload.toJson()),
+        )
+    }
+
+    /**
+     * New season length and start date. The running season is snapshotted first (only the part before
+     * [newStart]). Past snapshots are never touched.
+     */
+    suspend fun changeSeason(newLength: Int, newStart: LocalDate, today: LocalDate = LocalDate.now()) {
+        seasonLock.withLock {
+            val s = requireNotNull(settings.get()) { "Settings are not set up yet" }
+            validateSeasonChange(s.seasonStartDate, newLength, newStart, s.seasonLength, today)?.let {
+                throw IllegalArgumentException(it)
+            }
+            closeFinishedLocked(today)
+
+            val partial = partialSeasonWindow(s.seasonStartDate, s.seasonLength, newStart, today)
+            if (partial != null) {
+                val existing = summaries.getAll()
+                if (existing.none { it.startDate == partial.start }) {
+                    val base = seasonBase(existing, s.seasonStartDate)
+                    saveSnapshot(
+                        base + partial.number, partial.start, partial.end, s.seasonLength,
+                        trackers.getAll(), logs.getAll(), bands.getAll(), today,
+                    )
+                }
+            }
+            settings.upsert(s.copy(seasonStartDate = newStart, seasonLength = newLength))
+        }
+    }
+
+    /** Remembers the highest summary the user has seen. Never moves backwards. */
+    suspend fun markSummarySeen(number: Int) {
+        val s = settings.get() ?: return
+        if (number > s.lastSeasonSummarySeen) settings.upsert(s.copy(lastSeasonSummarySeen = number))
     }
 
     suspend fun saveSeasonSummary(summary: SeasonSummary) = summaries.insert(summary)

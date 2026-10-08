@@ -19,6 +19,9 @@ interface TrackerDao {
     @Query("SELECT * FROM trackers WHERE id = :id")
     suspend fun get(id: Long): Tracker?
 
+    @Query("SELECT * FROM trackers")
+    suspend fun getAll(): List<Tracker>
+
     @Insert
     suspend fun insert(tracker: Tracker): Long
 
@@ -41,6 +44,9 @@ interface BandDao {
     @Query("SELECT * FROM band_history ORDER BY trackerId, effectiveFrom")
     fun observeAll(): Flow<List<BandHistory>>
 
+    @Query("SELECT * FROM band_history")
+    suspend fun getAll(): List<BandHistory>
+
     // Same tracker + same effectiveFrom replaces the old row (unique index).
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(band: BandHistory): Long
@@ -53,6 +59,9 @@ interface LogDao {
 
     @Query("SELECT * FROM log_entries")
     fun observeAll(): Flow<List<LogEntry>>
+
+    @Query("SELECT * FROM log_entries")
+    suspend fun getAll(): List<LogEntry>
 
     @Query("SELECT * FROM log_entries WHERE id = :id")
     suspend fun get(id: Long): LogEntry?
@@ -94,6 +103,9 @@ interface SettingsDao {
     @Query("SELECT * FROM settings WHERE id = 1")
     fun observe(): Flow<Settings?>
 
+    @Query("SELECT * FROM settings WHERE id = 1")
+    suspend fun get(): Settings?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(settings: Settings)
 
@@ -105,6 +117,9 @@ interface SettingsDao {
 interface SeasonSummaryDao {
     @Query("SELECT * FROM season_summaries ORDER BY startDate DESC")
     fun observeAll(): Flow<List<SeasonSummary>>
+
+    @Query("SELECT * FROM season_summaries ORDER BY startDate")
+    suspend fun getAll(): List<SeasonSummary>
 
     @Insert
     suspend fun insert(summary: SeasonSummary): Long

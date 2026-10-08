@@ -5,10 +5,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.seasons.app.ui.ArchiveScreen
+import com.seasons.app.ui.SeasonSummaryScreen
+import com.seasons.app.ui.SeasonsHistoryScreen
+import com.seasons.app.ui.SeasonsViewModel
+import com.seasons.app.ui.SettingsScreen
 import com.seasons.app.ui.ArchiveViewModel
 import com.seasons.app.ui.FormViewModel
 import com.seasons.app.ui.GroupDetailScreen
@@ -42,6 +49,11 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
     when (val screen = nav.stack.last()) {
         Screen.Home -> {
             val vm: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(repository()) } })
+            val pending by vm.pendingSummary.collectAsStateWithLifecycle()
+            // A season ended since the last open: show its summary once.
+            LaunchedEffect(pending?.id) {
+                pending?.let { if (vm.claimSummary(it.id)) nav.push(Screen.SeasonSummary(it.id)) }
+            }
             HomeScreen(
                 vm = vm,
                 onOpen = { nav.push(Screen.TrackerDetail(it)) },
@@ -49,6 +61,8 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
                 onGroups = { nav.push(Screen.Groups) },
                 onTrophies = { nav.push(Screen.Trophies) },
                 onArchive = { nav.push(Screen.Archive) },
+                onSeasons = { nav.push(Screen.SeasonsHistory) },
+                onSettings = { nav.push(Screen.Settings) },
             )
         }
         Screen.Groups -> {
@@ -62,6 +76,18 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
         Screen.Trophies -> {
             val vm: TrophiesViewModel = viewModel(factory = viewModelFactory { initializer { TrophiesViewModel(repository()) } })
             TrophiesScreen(vm, onOpen = { nav.push(Screen.TrackerDetail(it)) }, onBack = nav::pop)
+        }
+        Screen.Settings -> {
+            val vm: SeasonsViewModel = viewModel(key = "settings", factory = viewModelFactory { initializer { SeasonsViewModel(repository()) } })
+            SettingsScreen(vm, onBack = nav::pop)
+        }
+        Screen.SeasonsHistory -> {
+            val vm: SeasonsViewModel = viewModel(key = "history", factory = viewModelFactory { initializer { SeasonsViewModel(repository()) } })
+            SeasonsHistoryScreen(vm, onOpen = { nav.push(Screen.SeasonSummary(it)) }, onBack = nav::pop)
+        }
+        is Screen.SeasonSummary -> {
+            val vm: SeasonsViewModel = viewModel(key = "summary", factory = viewModelFactory { initializer { SeasonsViewModel(repository()) } })
+            SeasonSummaryScreen(vm, screen.summaryId, onClose = nav::pop)
         }
         Screen.Archive -> {
             val vm: ArchiveViewModel = viewModel(factory = viewModelFactory { initializer { ArchiveViewModel(repository()) } })

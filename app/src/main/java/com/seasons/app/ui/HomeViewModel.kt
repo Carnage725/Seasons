@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 data class HomeRow(
@@ -73,6 +74,31 @@ fun Repository.observeHomeRows(): Flow<List<HomeRow>> = combine(
 }
 
 class HomeViewModel(repo: Repository) : ViewModel() {
+    private val seasons = HomeSeasonState(repo, viewModelScope)
+
+    /** True when first-launch setup is still needed. */
+    val needsSetup: StateFlow<Boolean> = seasons.needsSetup
+
+    /** The next season summary the user has not seen yet, or null. */
+    val pendingSummary: StateFlow<com.seasons.app.data.SeasonSummary?> = seasons.pendingSummary
+
+    init {
+        // Once settings exist, save a snapshot for every season that has ended since the last open.
+        viewModelScope.launch { seasons.closeFinishedSeasonsWhenReady() }
+    }
+
+    private val shownSummaries = mutableSetOf<Long>()
+
+    /**
+     * True the first time it is asked about a summary. Stops a stale value from opening the same summary
+     * again when you come back from it, before the database has caught up.
+     */
+    fun claimSummary(id: Long): Boolean = shownSummaries.add(id)
+
+    fun saveSetup(start: java.time.LocalDate, length: Int) {
+        viewModelScope.launch { seasons.saveSetup(start, length) }
+    }
+
     /** Null while loading. */
     val sections: StateFlow<List<HomeSection>?> = combine(
         repo.observeHomeRows(),

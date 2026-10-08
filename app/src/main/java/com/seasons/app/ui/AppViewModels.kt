@@ -17,6 +17,9 @@ sealed interface Screen {
     data class GroupDetail(val groupId: Long) : Screen
     data object Trophies : Screen
     data object Archive : Screen
+    data object Settings : Screen
+    data object SeasonsHistory : Screen
+    data class SeasonSummary(val summaryId: Long) : Screen
 }
 
 /** A plain back stack. Lives in a ViewModel so it survives rotation. */

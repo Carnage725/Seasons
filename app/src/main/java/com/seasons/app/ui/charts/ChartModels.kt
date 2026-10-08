@@ -139,10 +139,13 @@ fun buildSeasonModel(
     today: LocalDate,
     seasonStart: LocalDate,
     seasonLength: Int,
+    /** Seasons already snapshotted before this start date. Added to the spec's season number for display. */
+    numberBase: Int = 0,
 ): SeasonModel? {
     if (today.isBefore(seasonStart)) return null
-    val number = seasonNumber(today, seasonStart, seasonLength)
-    val first = seasonStartDate(number, seasonStart, seasonLength)
+    val formulaNumber = seasonNumber(today, seasonStart, seasonLength)
+    val number = numberBase + formulaNumber
+    val first = seasonStartDate(formulaNumber, seasonStart, seasonLength)
     val daily = tracker.bandPeriod == BandPeriod.DAILY
 
     val dates = (0 until seasonLength).map { first.plusDays(it.toLong()) }

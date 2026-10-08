@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Tracker
+import com.seasons.app.data.seasonBase
 import com.seasons.app.data.TrackerGroup
 import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChartModel
@@ -48,7 +49,8 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
         repo.observeLogs(trackerId),
         repo.observeBands(trackerId),
         repo.observeSettings(),
-    ) { tracker, logs, bands, settings ->
+        repo.observeSeasonSummaries(),
+    ) { tracker, logs, bands, settings, summaries ->
         if (tracker == null) {
             null
         } else {
@@ -64,18 +66,16 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                     daily = buildDailyChart(tracker, totals, bandList, today),
                     weekly = buildWeeklyChart(tracker, totals, bandList, today),
                     season = settings?.let {
-                        buildSeasonModel(tracker, totals, bandList, today, it.seasonStartDate, it.seasonLength)
+                        buildSeasonModel(
+                            tracker, totals, bandList, today, it.seasonStartDate, it.seasonLength,
+                            numberBase = seasonBase(summaries, it.seasonStartDate),
+                        )
                     },
                     onTrack = if (tracker.type == TrackerType.GOAL) buildOnTrackChart(tracker, totals, bandList, today) else null,
                 ),
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    init {
-        // First use: create the default season settings (starts today, 77 days).
-        viewModelScope.launch { repo.ensureSettings() }
-    }
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error

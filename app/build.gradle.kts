@@ -46,6 +46,8 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     testImplementation("junit:junit:4.13.2")
+    // Android's stub jar cannot run org.json in plain JVM tests. The app itself uses the built-in one.
+    testImplementation("org.json:json:20260814")
 
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

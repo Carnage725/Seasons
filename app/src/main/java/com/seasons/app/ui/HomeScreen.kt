@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package com.seasons.app.ui
 
 import androidx.compose.foundation.background
@@ -5,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,8 +48,12 @@ fun HomeScreen(
     onGroups: () -> Unit,
     onTrophies: () -> Unit,
     onArchive: () -> Unit,
+    onSeasons: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val sections by vm.sections.collectAsStateWithLifecycle()
+    val needsSetup by vm.needsSetup.collectAsStateWithLifecycle()
+    if (needsSetup) SetupDialog(onSave = vm::saveSetup)
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = onNew, containerColor = Grey3, contentColor = TextMain) {
@@ -62,10 +70,12 @@ fun HomeScreen(
                 item {
                     Column {
                         Text("Seasons", style = MaterialTheme.typography.headlineMedium, color = Grey1)
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(onClick = onGroups) { Text("Groups") }
                             TextButton(onClick = onTrophies) { Text("Trophies") }
                             TextButton(onClick = onArchive) { Text("Archive") }
+                            TextButton(onClick = onSeasons) { Text("Seasons") }
+                            TextButton(onClick = onSettings) { Text("Settings") }
                         }
                     }
                 }

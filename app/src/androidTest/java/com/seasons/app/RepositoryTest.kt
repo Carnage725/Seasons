@@ -9,6 +9,7 @@ import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Settings
 import com.seasons.app.data.Tracker
+import com.seasons.app.data.parseSeasonPayload
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.data.TrackerType
 import kotlinx.coroutines.flow.first
@@ -251,5 +252,125 @@ class RepositoryTest {
         val newId = repo.startFresh(repo.getTracker(id)!!, today)
         assertTrue(repo.observeBands(newId).first().isEmpty())
         assertEquals(200.0, repo.getTracker(newId)!!.target!!, 0.0)
+    }
+
+    // ---------- seasons ----------
+
+    @Test fun firstSettings_saved_ignoredIfAlreadyThere_andValidated() = runBlocking {
+        repo.saveFirstSettings(today.minusDays(3), 30)
+        repo.saveFirstSettings(today, 90) // already set up: ignored
+        val s = repo.observeSettings().first()!!
+        assertEquals(today.minusDays(3), s.seasonStartDate)
+        assertEquals(30, s.seasonLength)
+        expectFailure { repo.saveFirstSettings(today, 5) }
+    }
+
+    @Test fun closeFinishedSeasons_forSeveralLengths_isIdempotent() = runBlocking {
+        for (len in listOf(7, 30, 77, 90)) {
+            db.clearAllTables()
+            val seasonStart = today.minusDays(2L * len + 3)
+            repo.saveFirstSettings(seasonStart, len)
+            val id = repo.createTracker(goal(start = seasonStart), null, null)
+            repo.addLog(id, seasonStart.plusDays(1), 5.0, today) // inside season 1
+            repo.addLog(id, seasonStart.plusDays(len + 2L), 7.0, today) // inside season 2
+
+            repo.closeFinishedSeasons(today)
+            repo.closeFinishedSeasons(today) // second call must not add anything
+
+            val list = repo.observeSeasonSummaries().first().sortedBy { it.seasonNumber }
+            assertEquals("len $len", 2, list.size)
+            assertEquals(listOf(1, 2), list.map { it.seasonNumber })
+            assertEquals(seasonStart, list[0].startDate)
+            assertEquals(seasonStart.plusDays(len - 1L), list[0].endDate)
+            assertEquals(len, list[0].length)
+            val first = parseSeasonPayload(list[0].payloadJson)
+            val second = parseSeasonPayload(list[1].payloadJson)
+            assertEquals(1, first.daysActive)
+            assertEquals(5.0, first.trackers.single().total, 0.0)
+            assertEquals(7.0, second.trackers.single().total, 0.0)
+        }
+    }
+
+    @Test fun closeFinishedSeasons_snapshotIsFrozen() = runBlocking {
+        val seasonStart = today.minusDays(20)
+        repo.saveFirstSettings(seasonStart, 7)
+        val id = repo.createTracker(goal(start = seasonStart), null, null)
+        repo.addLog(id, seasonStart, 5.0, today)
+        repo.closeFinishedSeasons(today)
+        val before = repo.observeSeasonSummaries().first().first { it.startDate == seasonStart }.payloadJson
+
+        repo.addLog(id, seasonStart.plusDays(1), 50.0, today) // backfill after the season ended
+        repo.closeFinishedSeasons(today)
+
+        assertEquals(before, repo.observeSeasonSummaries().first().first { it.startDate == seasonStart }.payloadJson)
+    }
+
+    @Test fun closeFinishedSeasons_noSettings_doesNothing() = runBlocking {
+        repo.closeFinishedSeasons(today)
+        assertTrue(repo.observeSeasonSummaries().first().isEmpty())
+    }
+
+    @Test fun changeSeason_midSeason_snapshotsPartial_thenNumberingContinues() = runBlocking {
+        val seasonStart = today.minusDays(20) // day 21 of season 1, length 77
+        repo.saveFirstSettings(seasonStart, 77)
+        val id = repo.createTracker(goal(start = seasonStart), null, null)
+        repo.addLog(id, seasonStart.plusDays(2), 4.0, today)
+        repo.addLog(id, today, 9.0, today) // belongs to the new season
+
+        repo.changeSeason(30, today, today)
+
+        val s = repo.observeSettings().first()!!
+        assertEquals(today, s.seasonStartDate)
+        assertEquals(30, s.seasonLength)
+        val partial = repo.observeSeasonSummaries().first().single()
+        assertEquals(1, partial.seasonNumber)
+        assertEquals(seasonStart, partial.startDate)
+        assertEquals(today.minusDays(1), partial.endDate)
+        assertEquals(77, partial.length)
+        val payload = parseSeasonPayload(partial.payloadJson)
+        assertEquals(4.0, payload.trackers.single().total, 0.0) // today's 9 is not in it
+        assertEquals(1, payload.daysActive)
+
+        // 35 days later the first 30-day season has ended: it becomes season 2.
+        val later = today.plusDays(35)
+        repo.closeFinishedSeasons(later)
+        val all = repo.observeSeasonSummaries().first().sortedBy { it.seasonNumber }
+        assertEquals(listOf(1, 2), all.map { it.seasonNumber })
+        assertEquals(today, all[1].startDate)
+        assertEquals(30, all[1].length)
+        assertEquals(partial.payloadJson, all[0].payloadJson) // past snapshot untouched
+    }
+
+    @Test fun changeSeason_onTheFirstDayOfASeason_hasNothingToSnapshot() = runBlocking {
+        repo.saveFirstSettings(today, 77)
+        repo.changeSeason(90, today, today)
+        assertTrue(repo.observeSeasonSummaries().first().isEmpty())
+        assertEquals(90, repo.observeSettings().first()!!.seasonLength)
+    }
+
+    @Test fun changeSeason_closesSeasonsThatAlreadyEndedFirst() = runBlocking {
+        val seasonStart = today.minusDays(40) // length 7: seasons 1-5 are over, season 6 started 5 days ago... day 6 of season 6
+        repo.saveFirstSettings(seasonStart, 7)
+        repo.changeSeason(30, today, today)
+        val all = repo.observeSeasonSummaries().first().sortedBy { it.seasonNumber }
+        // today = day 41 -> season 6, day 6. Seasons 1-5 finished + 1 partial (6).
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), all.map { it.seasonNumber })
+        assertEquals(today.minusDays(1), all.last().endDate)
+    }
+
+    @Test fun changeSeason_rejectsBadInput() = runBlocking {
+        repo.saveFirstSettings(today.minusDays(20), 77)
+        expectFailure { repo.changeSeason(6, today, today) }
+        expectFailure { repo.changeSeason(30, today.plusDays(1), today) }
+        expectFailure { repo.changeSeason(30, today.minusDays(21), today) } // before the running season began
+        assertEquals(77, repo.observeSettings().first()!!.seasonLength)
+        assertTrue(repo.observeSeasonSummaries().first().isEmpty())
+    }
+
+    @Test fun markSummarySeen_neverMovesBackwards() = runBlocking {
+        repo.saveFirstSettings(today, 77)
+        repo.markSummarySeen(3)
+        repo.markSummarySeen(1)
+        assertEquals(3, repo.observeSettings().first()!!.lastSeasonSummarySeen)
     }
 }
