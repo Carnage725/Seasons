@@ -4,7 +4,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
-import kotlin.math.ceil
 import kotlin.math.max
 
 // Pure Kotlin. No Android, no database. `totals` is the sum of logs per date.
@@ -24,82 +23,15 @@ fun goalProgress(totals: Map<LocalDate, Double>, target: Double): GoalProgress {
     return GoalProgress(done = done, left = max(0.0, target - done), fraction = done / target)
 }
 
-// ---------- Pace ----------
+// ---------- Needed pace (goals with a deadline) ----------
 
-/** Sum of the last 7 days including today, divided by 7. */
-fun pace(totals: Map<LocalDate, Double>, today: LocalDate): Double =
-    (0L..6L).sumOf { totals[today.minusDays(it)] ?: 0.0 } / 7.0
+/** Days left to the deadline, today included. A deadline today, or already past, counts as 1. */
+fun daysRemaining(deadline: LocalDate, today: LocalDate): Int =
+    max(1L, ChronoUnit.DAYS.between(today, deadline) + 1).toInt()
 
-// ---------- Needed pace and projection ----------
-
-enum class GoalState { DONE, ON_TRACK, BEHIND }
-
-data class GoalForecast(
-    val state: GoalState,
-    /** Deadline case only: left / days remaining (today included). */
-    val neededPerDay: Double?,
-    /** BEHIND only: how much more per day is needed. Null when it can't be worked out. */
-    val shortfallPerDay: Double?,
-    /** Finish date by the spec's rule: deadline -> at pace, band -> at lower bound, none -> at pace. */
-    val projectedFinish: LocalDate?,
-    /** Finish date at the current pace. Null when pace is 0. */
-    val projectedFinishAtPace: LocalDate?,
-)
-
-fun goalForecast(
-    totals: Map<LocalDate, Double>,
-    target: Double,
-    deadline: LocalDate?,
-    dailyBand: Band?,
-    today: LocalDate,
-): GoalForecast {
-    val left = goalProgress(totals, target).left
-    val pace = pace(totals, today)
-    val atPace = finishAt(today, left, pace)
-
-    if (left <= 0.0) {
-        return GoalForecast(GoalState.DONE, null, null, today, today)
-    }
-
-    if (deadline != null) {
-        // A deadline today or in the past still counts as 1 day remaining.
-        val daysRemaining = max(1L, ChronoUnit.DAYS.between(today, deadline) + 1)
-        val needed = left / daysRemaining
-        val onTrack = pace >= needed
-        return GoalForecast(
-            state = if (onTrack) GoalState.ON_TRACK else GoalState.BEHIND,
-            neededPerDay = needed,
-            shortfallPerDay = if (onTrack) null else needed - pace,
-            projectedFinish = atPace,
-            projectedFinishAtPace = atPace,
-        )
-    }
-
-    if (dailyBand != null) {
-        val onTrack = pace >= dailyBand.lower
-        return GoalForecast(
-            state = if (onTrack) GoalState.ON_TRACK else GoalState.BEHIND,
-            neededPerDay = null,
-            shortfallPerDay = if (onTrack) null else dailyBand.lower - pace,
-            projectedFinish = finishAt(today, left, dailyBand.lower),
-            projectedFinishAtPace = atPace,
-        )
-    }
-
-    return GoalForecast(
-        state = if (pace > 0.0) GoalState.ON_TRACK else GoalState.BEHIND,
-        neededPerDay = null,
-        shortfallPerDay = null,
-        projectedFinish = atPace,
-        projectedFinishAtPace = atPace,
-    )
-}
-
-private fun finishAt(today: LocalDate, left: Double, rate: Double): LocalDate? {
-    if (left <= 0.0) return today
-    if (rate <= 0.0) return null
-    return today.plusDays(ceil(left / rate).toLong())
-}
+/** What you must average per day, from today, to finish by the deadline. */
+fun neededPerDay(left: Double, deadline: LocalDate, today: LocalDate): Double =
+    left / daysRemaining(deadline, today)
 
 // ---------- Daily streaks ----------
 

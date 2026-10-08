@@ -80,3 +80,10 @@
 - **History:** "Seasons" link on Home lists snapshots newest first. Tap opens the same summary screen.
 - **Home links** now wrap onto two lines (Groups, Trophies, Archive, Seasons, Settings).
 - **Test dependency:** `org.json:json:20260814` for unit tests only. Android's stub jar cannot run `org.json` in plain JVM tests.
+
+## Fixes after Phase 6 (your feedback)
+- **Removed the pace / on-track / finish-date calculation and stat completely.** Gone from the tracker screen, the code (`pace`, `goalForecast`, status label, finish dates) and the tests. The On track chart no longer draws a projection line for goals without a deadline. It shows only the cumulative line there.
+- **Needed pace stays, as a plain line** under the header, for goals with a deadline only: `Need 10 pages/day · 10 days left`. It is `left / days remaining`, counting today as a day (100 pages, deadline 9 days away = 10 days = 10 a day). It shows no on-track/behind label and no finish date. Past deadline: `Deadline passed · N left`. No line without a deadline, for ongoing trackers, or once the goal is reached.
+- **The "Goal reached" banner** now keys off `done >= target` directly.
+- **Keyboard on first tap:** Custom, Edit entry, Change band and the group dialogs now put the cursor in the field and open the keyboard automatically. In Edit entry the existing amount is selected, so typing replaces it.
+- **Start fresh:** the old tracker now gets a new status `REPLACED`. It is kept as history (logs stay, and count in season summaries) but leaves the Archive list, so it cannot be restarted twice. The action runs in a database transaction and does nothing if the tracker is no longer archived, so repeated taps cannot create duplicates. `unarchiveContinue` has the same guard. This changes the spec ("the old one stays archived as history"): the old one is kept but no longer listed. Nothing shows replaced trackers yet.

@@ -227,7 +227,7 @@ class RepositoryTest {
         repo.addLog(id, today, 4.0, today)
         repo.archiveTracker(repo.getTracker(id)!!)
 
-        val newId = repo.startFresh(repo.getTracker(id)!!, today)
+        val newId = repo.startFresh(repo.getTracker(id)!!, today)!!
 
         assertTrue(newId != id)
         val fresh = repo.getTracker(newId)!!
@@ -242,14 +242,41 @@ class RepositoryTest {
         assertEquals(8.0, bands[0].upper, 0.0)
         assertEquals(today, bands[0].effectiveFrom)
 
+        // The old one is kept as history but leaves the Archive list.
         val old = repo.getTracker(id)!!
-        assertEquals(TrackerStatus.ARCHIVED, old.status)
+        assertEquals(TrackerStatus.REPLACED, old.status)
         assertEquals(1, repo.observeLogs(id).first().size)
+    }
+
+    @Test fun startFresh_twice_createsOnlyOneNewTracker() = runBlocking {
+        val id = repo.createTracker(goal(), null, null)
+        repo.archiveTracker(repo.getTracker(id)!!)
+        val stale = repo.getTracker(id)!! // what a second tap would still be holding
+
+        val first = repo.startFresh(stale, today)
+        val second = repo.startFresh(stale, today)
+
+        assertNotNull(first)
+        assertNull(second)
+        val all = repo.observeTrackers().first()
+        assertEquals(2, all.size) // the original (REPLACED) and one fresh copy
+        assertEquals(1, all.count { it.status == TrackerStatus.ACTIVE })
+        assertEquals(0, all.count { it.status == TrackerStatus.ARCHIVED })
+    }
+
+    @Test fun unarchiveContinue_ignoresATrackerThatIsNotArchived() = runBlocking {
+        val id = repo.createTracker(goal(), null, null)
+        repo.archiveTracker(repo.getTracker(id)!!)
+        val stale = repo.getTracker(id)!!
+        repo.startFresh(stale, today) // old becomes REPLACED
+        repo.unarchiveContinue(stale)
+        assertEquals(TrackerStatus.REPLACED, repo.getTracker(id)!!.status)
     }
 
     @Test fun startFresh_goalWithoutBand_hasNoBandRows() = runBlocking {
         val id = repo.createTracker(goal(), null, null)
-        val newId = repo.startFresh(repo.getTracker(id)!!, today)
+        repo.archiveTracker(repo.getTracker(id)!!)
+        val newId = repo.startFresh(repo.getTracker(id)!!, today)!!
         assertTrue(repo.observeBands(newId).first().isEmpty())
         assertEquals(200.0, repo.getTracker(newId)!!.target!!, 0.0)
     }

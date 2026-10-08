@@ -188,74 +188,51 @@ class ChartModelsTest {
     private val goalLogs = totals(-3 to 10.0, -1 to 5.0)
 
     @Test fun onTrack_ongoingTrackerHasNoChart() {
-        assertNull(buildOnTrackChart(tracker(), emptyMap(), emptyList(), today))
+        assertNull(buildOnTrackChart(tracker(), emptyMap(), today))
     }
 
     @Test fun onTrack_cumulativeFromStartToToday() {
-        val m = buildOnTrackChart(goal(deadline = d(6)), goalLogs, emptyList(), today)!!
+        val m = buildOnTrackChart(goal(deadline = d(6)), goalLogs, today)!!
         assertEquals(listOf(10.0, 10.0, 15.0, 15.0), m.cumulative.map { it.value })
         assertEquals(listOf(0, 1, 2, 3), m.cumulative.map { it.dayOffset })
         assertEquals("15", m.cumulativeLabel)
     }
 
     @Test fun onTrack_deadline_drawsNeededLineStartToDeadline() {
-        val m = buildOnTrackChart(goal(deadline = d(6)), goalLogs, emptyList(), today)!!
+        val m = buildOnTrackChart(goal(deadline = d(6)), goalLogs, today)!!
         val (a, b) = m.needed!!
         assertEquals(0, a.dayOffset)
         assertEquals(0.0, a.value, 0.0)
         assertEquals(9, b.dayOffset)
         assertEquals(100.0, b.value, 0.0)
-        assertNull(m.projection)
         assertEquals("100 by Oct 13", m.lineLabel)
         assertEquals(9, m.maxDayOffset)
         assertEquals("Oct 4", m.firstLabel)
         assertEquals("Oct 13", m.lastLabel)
     }
 
-    @Test fun onTrack_noDeadline_projectsAtPace() {
-        // pace 15/7, left 85 -> ceil(39.67) = 40 days.
-        val m = buildOnTrackChart(goal(), goalLogs, emptyList(), today)!!
-        assertNull(m.needed)
-        val (a, b) = m.projection!!
-        assertEquals(3, a.dayOffset)
-        assertEquals(15.0, a.value, 0.0)
-        assertEquals(43, b.dayOffset)
-        assertEquals(100.0, b.value, 0.0)
-        assertEquals("100 ~Nov 16", m.lineLabel)
-        assertEquals(43, m.maxDayOffset)
-    }
-
-    @Test fun onTrack_noDeadline_withBand_projectsAtBandLower() {
-        val bands = listOf(Band(d(-3), 4.0, 8.0))
-        // left 85, lower 4 -> ceil(21.25) = 22 days.
-        val m = buildOnTrackChart(goal(band = BandPeriod.DAILY), goalLogs, bands, today)!!
-        assertEquals(25, m.projection!!.second.dayOffset)
-        assertEquals("100 ~Oct 29", m.lineLabel)
-    }
-
-    @Test fun onTrack_noDeadline_paceZero_hasNoProjection() {
-        val m = buildOnTrackChart(goal(), emptyMap(), emptyList(), today)!!
-        assertNull(m.projection)
+    @Test fun onTrack_noDeadline_hasOnlyTheCumulativeLine() {
+        val m = buildOnTrackChart(goal(), goalLogs, today)!!
         assertNull(m.needed)
         assertNull(m.lineLabel)
-        assertEquals(3, m.maxDayOffset)
+        assertEquals(3, m.maxDayOffset) // stops at today: nothing is projected
+        assertEquals("Oct 7", m.lastLabel)
     }
 
-    @Test fun onTrack_done_hasNoProjection_andYAxisCoversOverage() {
-        val m = buildOnTrackChart(goal(target = 10.0), goalLogs, emptyList(), today)!!
-        assertNull(m.projection)
+    @Test fun onTrack_done_yAxisCoversOverage() {
+        val m = buildOnTrackChart(goal(target = 10.0), goalLogs, today)!!
         assertEquals(15.0, m.maxY, 0.0)
     }
 
     @Test fun onTrack_deadlineInPast_xAxisStopsAtToday() {
-        val m = buildOnTrackChart(goal(deadline = d(-1)), goalLogs, emptyList(), today)!!
+        val m = buildOnTrackChart(goal(deadline = d(-1)), goalLogs, today)!!
         assertEquals(2, m.needed!!.second.dayOffset)
         assertEquals(3, m.maxDayOffset)
     }
 
     @Test fun onTrack_startedToday_singlePoint_andAtLeastOneDayWide() {
         val t = tracker(TrackerType.GOAL, BandPeriod.NONE, 100.0, null, startDate = today)
-        val m = buildOnTrackChart(t, emptyMap(), emptyList(), today)!!
+        val m = buildOnTrackChart(t, emptyMap(), today)!!
         assertEquals(1, m.cumulative.size)
         assertEquals(1, m.maxDayOffset)
     }
@@ -265,5 +242,5 @@ class ChartModelsTest {
         assertEquals("Jan 8, 2027", shortDate(LocalDate.of(2027, 1, 8), today))
     }
 
-    @Test fun onTrack_notNullForGoal() = assertNotNull(buildOnTrackChart(goal(), emptyMap(), emptyList(), today))
+    @Test fun onTrack_notNullForGoal() = assertNotNull(buildOnTrackChart(goal(), emptyMap(), today))
 }

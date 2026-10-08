@@ -5,8 +5,6 @@ import com.seasons.app.data.Tracker
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dayMet
-import com.seasons.app.domain.goalForecast
-import com.seasons.app.domain.goalProgress
 import com.seasons.app.domain.heatmapColumns
 import com.seasons.app.domain.seasonDay
 import com.seasons.app.domain.seasonNumber
@@ -185,10 +183,8 @@ data class OnTrackModel(
     /** Largest x: days from the start date to the last thing drawn. At least 1. */
     val maxDayOffset: Int,
     val cumulative: List<ChartPoint>,
-    /** Deadline case: straight line from (start, 0) to (deadline, target). */
+    /** Goals with a deadline: straight line from (start, 0) to (deadline, target). */
     val needed: Pair<ChartPoint, ChartPoint>?,
-    /** No-deadline case: from today's total to the projected finish at the target. */
-    val projection: Pair<ChartPoint, ChartPoint>?,
     val cumulativeLabel: String,
     val lineLabel: String?,
     val firstLabel: String,
@@ -198,7 +194,6 @@ data class OnTrackModel(
 fun buildOnTrackChart(
     tracker: Tracker,
     totals: Map<LocalDate, Double>,
-    bands: List<Band>,
     today: LocalDate,
 ): OnTrackModel? {
     val target = tracker.target ?: return null
@@ -215,7 +210,6 @@ fun buildOnTrackChart(
     fun offset(d: LocalDate) = ChronoUnit.DAYS.between(start, d).toInt()
 
     var needed: Pair<ChartPoint, ChartPoint>? = null
-    var projection: Pair<ChartPoint, ChartPoint>? = null
     var lineLabel: String? = null
     var endDate = today
 
@@ -224,14 +218,6 @@ fun buildOnTrackChart(
         needed = ChartPoint(0, 0.0) to ChartPoint(offset(dl), target)
         lineLabel = "${formatAmount(target)} by ${shortDate(dl, today)}"
         if (dl.isAfter(endDate)) endDate = dl
-    } else {
-        val dailyBand = if (tracker.bandPeriod == BandPeriod.DAILY) bandOn(bands, today) else null
-        val finish = goalForecast(totals, target, null, dailyBand, today).projectedFinish
-        if (finish != null && goalProgress(totals, target).left > 0.0) {
-            projection = ChartPoint(todayOffset, done) to ChartPoint(offset(finish), target)
-            lineLabel = "${formatAmount(target)} ~${shortDate(finish, today)}"
-            if (finish.isAfter(endDate)) endDate = finish
-        }
     }
 
     return OnTrackModel(
@@ -240,7 +226,6 @@ fun buildOnTrackChart(
         maxDayOffset = max(1, offset(endDate)),
         cumulative = cumulative,
         needed = needed,
-        projection = projection,
         cumulativeLabel = formatAmount(done),
         lineLabel = lineLabel,
         firstLabel = shortDate(start, today),

@@ -6,12 +6,13 @@ import com.seasons.app.data.Tracker
 import com.seasons.app.data.TrackerType
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.StreakStats
-import com.seasons.app.ui.StatusKind
 import com.seasons.app.ui.TrackerSummary
 import com.seasons.app.ui.buildTrackerSummary
 import com.seasons.app.ui.streakLabels
 import com.seasons.app.ui.validateBandBounds
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -35,8 +36,6 @@ class SummaryTest {
     private fun log(daysAgo: Long, amount: Double) =
         LogEntry(trackerId = 1, date = today.minusDays(daysAgo), amount = amount, createdAt = 0)
 
-    private fun statusText(s: TrackerSummary) = s.status!!.let { it.before + it.label + it.after }
-
     // ---------- header ----------
 
     @Test fun goalHeader_doneLeftPercent() {
@@ -58,7 +57,7 @@ class SummaryTest {
         assertEquals("5 / 3–6 laps", s.headline)
         assertEquals("today", s.subline)
         assertEquals(5f / 6f, s.progress, 1e-6f)
-        assertNull(s.status)
+        assertNull(s.needLine)
         assertEquals("Today 5 laps · band 3–6", s.todayLine)
     }
 
@@ -72,54 +71,49 @@ class SummaryTest {
         assertEquals("weeks", s.streaks.unit)
     }
 
-    // ---------- status line ----------
+    // ---------- needed pace line ----------
 
-    @Test fun status_deadline_onTrack() {
-        // done 100, pace 10/day, deadline in 9 days -> need 10/day.
+    @Test fun needLine_deadline_saysHowMuchPerDay() {
+        // 100 pages left, deadline in 9 days -> 10 days including today -> 10 pages a day.
         val s = buildTrackerSummary(goal(deadline = today.plusDays(9)), listOf(log(0, 70.0), log(10, 30.0)), emptyList(), today)
-        assertEquals(StatusKind.ON_TRACK, s.status!!.kind)
-        assertEquals("You 10/day · Need 10/day → On track · finish ~Oct 17", statusText(s))
+        assertEquals("Need 10 pages/day · 10 days left", s.needLine)
     }
 
-    @Test fun status_deadline_behind_showsGap() {
-        // done 100, pace 3/day, need 10/day -> need 7 more/day. 100/3 -> ceil 34 days -> Nov 10.
-        val s = buildTrackerSummary(goal(deadline = today.plusDays(9)), listOf(log(0, 21.0), log(10, 79.0)), emptyList(), today)
-        assertEquals(StatusKind.BEHIND, s.status!!.kind)
-        assertEquals("You 3/day · Need 10/day → Behind, need 7 more/day · finish ~Nov 10", statusText(s))
+    @Test fun needLine_roundsToTwoDecimalsAndDropsTrailingZeros() {
+        val s = buildTrackerSummary(goal(deadline = today.plusDays(2)), listOf(log(0, 1.0)), emptyList(), today)
+        assertEquals("Need 66.33 pages/day · 3 days left", s.needLine) // 199 / 3
     }
 
-    @Test fun status_deadlineInPast_needsEverythingLeftToday() {
+    @Test fun needLine_deadlineToday_oneDayLeft() {
+        val s = buildTrackerSummary(goal(deadline = today), listOf(log(0, 7.0)), emptyList(), today)
+        assertEquals("Need 193 pages/day · 1 day left", s.needLine)
+    }
+
+    @Test fun needLine_deadlinePassed() {
         val s = buildTrackerSummary(goal(deadline = today.minusDays(5)), listOf(log(0, 7.0)), emptyList(), today)
-        assertEquals(StatusKind.BEHIND, s.status!!.kind)
-        assertEquals("You 1/day · Need 193/day → Behind, need 192 more/day · finish ~Apr 18, 2027", statusText(s))
+        assertEquals("Deadline passed · 193 pages left", s.needLine)
     }
 
-    @Test fun status_band_noDeadline_showsBothProjections() {
-        // left 193, band min 4 -> ceil(193/4)=49 days -> Nov 25. pace 1 -> 193 days -> Apr 18, 2027.
-        val bands = listOf(Band(start, 4.0, 8.0))
-        val s = buildTrackerSummary(goal(band = BandPeriod.DAILY), listOf(log(0, 7.0)), bands, today)
-        assertEquals(
-            "You 1/day · Band min 4/day → Behind, need 3 more/day · finish ~Nov 25 at band min · ~Apr 18, 2027 at your pace",
-            statusText(s),
-        )
+    @Test fun needLine_noDeadline_orOngoing_orDone_hasNoLine() {
+        assertNull(buildTrackerSummary(goal(), listOf(log(0, 7.0)), emptyList(), today).needLine)
+        assertNull(buildTrackerSummary(ongoing(BandPeriod.DAILY), emptyList(), listOf(Band(start, 3.0, 6.0)), today).needLine)
+        assertNull(buildTrackerSummary(goal(deadline = today.plusDays(5), target = 10.0), listOf(log(0, 10.0)), emptyList(), today).needLine)
     }
 
-    @Test fun status_noBandNoDeadline_projectsAtPace() {
-        // pace 2/day, left 186 -> 93 days -> Jan 8, 2027.
-        val s = buildTrackerSummary(goal(), listOf(log(0, 14.0)), emptyList(), today)
-        assertEquals(StatusKind.ON_TRACK, s.status!!.kind)
-        assertEquals("You 2/day → On track · finish ~Jan 8, 2027", statusText(s))
+    @Test fun goalReached_whenTotalReachesTarget() {
+        assertTrue(buildTrackerSummary(goal(target = 10.0), listOf(log(0, 10.0)), emptyList(), today).goalReached)
+        assertTrue(buildTrackerSummary(goal(target = 10.0), listOf(log(0, 12.0)), emptyList(), today).goalReached)
+        assertFalse(buildTrackerSummary(goal(target = 10.0), listOf(log(0, 9.0)), emptyList(), today).goalReached)
+        assertFalse(buildTrackerSummary(ongoing(BandPeriod.NONE), listOf(log(0, 9.0)), emptyList(), today).goalReached)
     }
 
-    @Test fun status_paceZero_showsDash() {
-        val s = buildTrackerSummary(goal(), emptyList(), emptyList(), today)
-        assertEquals("You 0/day → Behind · finish —", statusText(s))
-    }
-
-    @Test fun status_done() {
-        val s = buildTrackerSummary(goal(target = 100.0, deadline = today.minusDays(3)), listOf(log(0, 100.0)), emptyList(), today)
-        assertEquals(StatusKind.DONE, s.status!!.kind)
-        assertEquals("Done", statusText(s))
+    @Test fun summary_noPaceOrProjectionAnywhere() {
+        val s = buildTrackerSummary(goal(deadline = today.plusDays(9)), listOf(log(0, 70.0)), emptyList(), today)
+        val all = listOfNotNull(s.headline, s.subline, s.needLine, s.todayLine).joinToString(" ")
+        assertFalse(all.contains("You "))
+        assertFalse(all.contains("finish"))
+        assertFalse(all.contains("On track"))
+        assertFalse(all.contains("Behind"))
     }
 
     // ---------- streak labels ----------

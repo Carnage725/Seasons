@@ -231,8 +231,8 @@ fun OnTrackChart(model: OnTrackModel, color: Color, modifier: Modifier = Modifie
 
         drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
 
-        // Grey dashed reference line: the needed pace (deadline) or the projection (no deadline).
-        val reference = model.needed ?: model.projection
+        // Grey dashed reference line: the pace needed to hit the target by the deadline.
+        val reference = model.needed
         reference?.let { (a, b) ->
             drawLine(
                 Grey1,

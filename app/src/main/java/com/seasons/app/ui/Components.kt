@@ -32,6 +32,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,6 +51,22 @@ import com.seasons.app.data.BandPeriod
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+
+/**
+ * Puts the cursor in the field and opens the keyboard as soon as the dialog shows,
+ * so the first tap is not wasted on just focusing it.
+ */
+@Composable
+private fun rememberAutoFocus(): FocusRequester {
+    val requester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        delay(100) // let the dialog window attach the field first
+        runCatching { requester.requestFocus() }
+        keyboard?.show()
+    }
+    return requester
+}
 
 private fun LocalDate.toUtcMillis(): Long = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 private fun Long.toUtcDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
@@ -90,6 +114,7 @@ fun AmountDialog(
 ) {
     var text by rememberSaveable { mutableStateOf(initial) }
     val amount = parseAmount(text)
+    val focus = rememberAutoFocus()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -99,6 +124,7 @@ fun AmountDialog(
                 onValueChange = { text = it },
                 singleLine = true,
                 label = { Text("Amount") },
+                modifier = Modifier.focusRequester(focus),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             )
         },
@@ -125,10 +151,14 @@ fun EditLogDialog(
     onSave: (LocalDate, Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var text by rememberSaveable { mutableStateOf(formatAmount(initialAmount)) }
+    var field by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        val start = formatAmount(initialAmount)
+        mutableStateOf(TextFieldValue(start, TextRange(0, start.length))) // selected, so typing replaces it
+    }
     var date by rememberSaveable { mutableStateOf(initialDate) }
     var picking by rememberSaveable { mutableStateOf(false) }
-    val amount = parseAmount(text)
+    val amount = parseAmount(field.text)
+    val focus = rememberAutoFocus()
 
     if (picking) {
         DatePickerModal(
@@ -146,10 +176,11 @@ fun EditLogDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
+                    value = field,
+                    onValueChange = { field = it },
                     singleLine = true,
                     label = { Text("Amount") },
+                    modifier = Modifier.focusRequester(focus),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -188,6 +219,7 @@ fun ChangeBandDialog(
     var date by rememberSaveable { mutableStateOf(today) }
     var picking by rememberSaveable { mutableStateOf(false) }
     val error = validateBandBounds(period, lower, upper)
+    val focus = rememberAutoFocus()
 
     if (picking) {
         DatePickerModal(
@@ -210,7 +242,7 @@ fun ChangeBandDialog(
                         onValueChange = { lower = it },
                         singleLine = true,
                         label = { Text("Lower") },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).focusRequester(focus),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
                     Spacer(Modifier.width(12.dp))
@@ -308,6 +340,7 @@ fun GroupDialog(
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var color by rememberSaveable { mutableStateOf(initialColor) }
+    val focus = rememberAutoFocus()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -315,7 +348,7 @@ fun GroupDialog(
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
-                    label = { Text("Group name") }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Group name") }, modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
                 ColorPicker(color) { color = it }
             }

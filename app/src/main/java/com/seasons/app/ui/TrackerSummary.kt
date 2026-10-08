@@ -5,24 +5,17 @@ import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Tracker
 import com.seasons.app.data.TrackerType
 import com.seasons.app.domain.Band
-import com.seasons.app.domain.GoalState
 import com.seasons.app.domain.StreakStats
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dailyStreaks
-import com.seasons.app.domain.goalForecast
+import com.seasons.app.domain.daysRemaining
+import com.seasons.app.domain.neededPerDay
 import com.seasons.app.domain.goalProgress
-import com.seasons.app.domain.pace
 import com.seasons.app.domain.weeklyStreaks
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
-
-enum class StatusKind { ON_TRACK, BEHIND, DONE }
-
-/** "You 9/day · Need 6/day → [On track] · finish ~Oct 16". The label is drawn in its own color. */
-data class StatusLine(val before: String, val label: String, val kind: StatusKind, val after: String)
 
 data class StreakLabels(val current: String, val best: String, val average: String, val unit: String)
 
@@ -31,7 +24,10 @@ data class TrackerSummary(
     val headline: String,
     val subline: String?,
     val progress: Float,
-    val status: StatusLine?,
+    /** Goals with a deadline: "Need 10 pages/day · 10 days left". Null otherwise. */
+    val needLine: String?,
+    /** A goal whose total has reached the target. */
+    val goalReached: Boolean,
     val streaks: StreakLabels,
     val todayLine: String,
 )
@@ -47,7 +43,8 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
     val headline: String
     val subline: String?
     val progress: Double
-    var status: StatusLine? = null
+    var needLine: String? = null
+    var goalReached = false
 
     if (tracker.type == TrackerType.GOAL) {
         val target = tracker.target ?: 0.0
@@ -55,7 +52,8 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
         headline = "${formatAmount(p.done)} / ${formatAmount(target)} $unit"
         subline = "${formatAmount(p.left)} left · ${Math.round(p.fraction * 100)}%"
         progress = p.fraction
-        status = goalStatus(tracker, totals, dailyBand, today)
+        goalReached = p.left <= 0.0
+        needLine = needLine(tracker, p.left, today)
     } else if (weekly) {
         val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val active = generateSequence(monday) { it.plusDays(1) }
@@ -85,7 +83,8 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
         headline = headline,
         subline = subline,
         progress = progress.coerceIn(0.0, 1.0).toFloat(),
-        status = status,
+        needLine = needLine,
+        goalReached = goalReached,
         streaks = streakLabels(streaks, weekly),
         todayLine = todayLine,
     )
@@ -100,31 +99,10 @@ fun streakLabels(s: StreakStats, weekly: Boolean) = StreakLabels(
 
 private fun range(b: Band) = "${formatAmount(b.lower)}–${formatAmount(b.upper)}"
 
-private fun goalStatus(tracker: Tracker, totals: Map<LocalDate, Double>, dailyBand: Band?, today: LocalDate): StatusLine {
-    val target = tracker.target ?: 0.0
-    val f = goalForecast(totals, target, tracker.deadline, dailyBand, today)
-    if (f.state == GoalState.DONE) return StatusLine("", "Done", StatusKind.DONE, "")
-
-    val you = "You ${formatAmount(pace(totals, today))}/day"
-    val kind = if (f.state == GoalState.ON_TRACK) StatusKind.ON_TRACK else StatusKind.BEHIND
-    val label = if (kind == StatusKind.ON_TRACK) "On track" else "Behind"
-    val gap = f.shortfallPerDay?.let { ", need ${formatAmount(it)} more/day" } ?: ""
-
-    return when {
-        f.neededPerDay != null -> StatusLine(
-            "$you · Need ${formatAmount(f.neededPerDay)}/day → ", label, kind,
-            "$gap · finish ${finish(f.projectedFinish, today)}",
-        )
-        dailyBand != null -> StatusLine(
-            "$you · Band min ${formatAmount(dailyBand.lower)}/day → ", label, kind,
-            "$gap · finish ${finish(f.projectedFinish, today)} at band min · ${finish(f.projectedFinishAtPace, today)} at your pace",
-        )
-        else -> StatusLine("$you → ", label, kind, " · finish ${finish(f.projectedFinish, today)}")
-    }
-}
-
-private fun finish(date: LocalDate?, today: LocalDate): String = when {
-    date == null -> "—"
-    date.year == today.year -> "~" + date.format(DateTimeFormatter.ofPattern("MMM d", Locale.US))
-    else -> "~" + date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))
+private fun needLine(tracker: Tracker, left: Double, today: LocalDate): String? {
+    val deadline = tracker.deadline ?: return null
+    if (left <= 0.0) return null
+    if (deadline.isBefore(today)) return "Deadline passed · ${formatAmount(left)} ${tracker.unit} left"
+    val days = daysRemaining(deadline, today)
+    return "Need ${formatAmount(neededPerDay(left, deadline, today))} ${tracker.unit}/day · $days ${if (days == 1) "day" else "days"} left"
 }

@@ -1,5 +1,6 @@
 package com.seasons.app.data
 
+import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
@@ -173,17 +174,28 @@ class Repository(private val db: AppDatabase) {
 
     suspend fun archiveTracker(tracker: Tracker) = trackers.update(tracker.copy(status = TrackerStatus.ARCHIVED))
 
-    /** "Continue where you left off": same tracker, all logs kept. */
-    suspend fun unarchiveContinue(tracker: Tracker) = trackers.update(tracker.copy(status = TrackerStatus.ACTIVE))
+    /** "Continue where you left off": same tracker, all logs kept. Does nothing if it is not archived. */
+    suspend fun unarchiveContinue(tracker: Tracker) = db.withTransaction {
+        val current = trackers.get(tracker.id)
+        if (current?.status == TrackerStatus.ARCHIVED) trackers.update(current.copy(status = TrackerStatus.ACTIVE))
+    }
 
-    /** "Start fresh": a new tracker with the same settings. The old one stays archived. Returns the new id. */
-    suspend fun startFresh(old: Tracker, today: LocalDate = LocalDate.now()): Long {
-        val band = if (old.bandPeriod == BandPeriod.NONE) {
+    /**
+     * "Start fresh": a new tracker with the same settings, starting [today]. The old one is kept as history
+     * (status REPLACED) and leaves the Archive list, so it cannot be restarted twice.
+     * Returns the new id, or null if the tracker was not archived (for example a second tap).
+     */
+    suspend fun startFresh(old: Tracker, today: LocalDate = LocalDate.now()): Long? = db.withTransaction {
+        val current = trackers.get(old.id)
+        if (current == null || current.status != TrackerStatus.ARCHIVED) return@withTransaction null
+        val band = if (current.bandPeriod == BandPeriod.NONE) {
             null
         } else {
-            bands.getFor(old.id).filter { !it.effectiveFrom.isAfter(today) }.maxByOrNull { it.effectiveFrom }
+            bands.getFor(current.id).filter { !it.effectiveFrom.isAfter(today) }.maxByOrNull { it.effectiveFrom }
         }
-        return createTracker(freshCopy(old, today), band?.lower, band?.upper)
+        val newId = createTracker(freshCopy(current, today), band?.lower, band?.upper)
+        trackers.update(current.copy(status = TrackerStatus.REPLACED))
+        newId
     }
 
     private fun validateLog(startDate: LocalDate, date: LocalDate, amount: Double, today: LocalDate) {

@@ -71,7 +71,7 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                             numberBase = seasonBase(summaries, it.seasonStartDate),
                         )
                     },
-                    onTrack = if (tracker.type == TrackerType.GOAL) buildOnTrackChart(tracker, totals, bandList, today) else null,
+                    onTrack = if (tracker.type == TrackerType.GOAL) buildOnTrackChart(tracker, totals, today) else null,
                 ),
             )
         }

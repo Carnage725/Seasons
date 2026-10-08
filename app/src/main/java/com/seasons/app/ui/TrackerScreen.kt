@@ -36,10 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -229,7 +226,7 @@ fun TrackerScreen(
                 }
             }
             // Goal reached: celebrate and offer the trophy shelf.
-            if (t.status == TrackerStatus.ACTIVE && s.status?.kind == StatusKind.DONE) {
+            if (t.status == TrackerStatus.ACTIVE && s.goalReached) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Goal reached", color = color, fontSize = 28.sp, fontWeight = FontWeight.Bold)
@@ -242,24 +239,8 @@ fun TrackerScreen(
                     }
                 }
             }
-            // 2. Status line
-            s.status?.let { st ->
-                item {
-                    val labelColor = when (st.kind) {
-                        StatusKind.ON_TRACK -> color
-                        StatusKind.BEHIND -> Amber
-                        StatusKind.DONE -> TextMain
-                    }
-                    Text(
-                        buildAnnotatedString {
-                            append(st.before)
-                            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Bold)) { append(st.label) }
-                            append(st.after)
-                        },
-                        color = Grey1,
-                    )
-                }
-            }
+            // 2. Needed pace (goals with a deadline)
+            s.needLine?.let { line -> item { Text(line, color = Grey1) } }
             // 3. Today: quick log
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

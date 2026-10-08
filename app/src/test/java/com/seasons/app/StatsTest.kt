@@ -1,13 +1,12 @@
 package com.seasons.app
 
 import com.seasons.app.domain.Band
-import com.seasons.app.domain.GoalState
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dailyStreaks
-import com.seasons.app.domain.goalForecast
+import com.seasons.app.domain.daysRemaining
+import com.seasons.app.domain.neededPerDay
 import com.seasons.app.domain.goalProgress
 import com.seasons.app.domain.heatmapColumns
-import com.seasons.app.domain.pace
 import com.seasons.app.domain.seasonDay
 import com.seasons.app.domain.seasonEndDate
 import com.seasons.app.domain.seasonNumber
@@ -51,77 +50,22 @@ class StatsTest {
         assertEquals(0.0, p.left, 0.0)
     }
 
-    // ---------- pace ----------
+    // ---------- needed pace ----------
 
-    @Test fun pace_lastSevenDaysIncludingToday_ignoresOlder() {
-        // day(-6) is inside the window, day(-7) is not.
-        assertEquals(10.0, pace(totals(0 to 35.0, -6 to 35.0, -7 to 999.0), today), 1e-9)
+    @Test fun daysRemaining_includesToday() {
+        assertEquals(10, daysRemaining(day(9), today))
+        assertEquals(1, daysRemaining(today, today))
     }
 
-    @Test fun pace_noLogs_isZero() {
-        assertEquals(0.0, pace(emptyMap(), today), 0.0)
+    @Test fun daysRemaining_pastDeadlineCountsAsOne() {
+        assertEquals(1, daysRemaining(day(-5), today))
     }
 
-    // ---------- forecast ----------
-
-    @Test fun forecast_deadline_onTrack() {
-        // left 100, deadline in 9 days -> 10 days remaining incl today -> need 10/day. Pace 70/7 = 10.
-        val t = totals(0 to 70.0, -10 to 30.0)
-        val f = goalForecast(t, 200.0, day(9), null, today)
-        assertEquals(GoalState.ON_TRACK, f.state)
-        assertEquals(10.0, f.neededPerDay!!, 1e-9) // left = 200-100
-        assertEquals(day(10), f.projectedFinish) // ceil(100/10)=10 days
-    }
-
-    @Test fun forecast_deadline_behind_reportsGap() {
-        // left 100, 10 days remaining -> need 10/day. Pace 3.
-        val f = goalForecast(totals(0 to 21.0, -10 to 79.0), 200.0, day(9), null, today)
-        assertEquals(GoalState.BEHIND, f.state)
-        assertEquals(10.0, f.neededPerDay!!, 1e-9)
-        assertEquals(7.0, f.shortfallPerDay!!, 1e-9)
-    }
-
-    @Test fun forecast_deadlineToday_countsOneDayRemaining() {
-        val f = goalForecast(totals(0 to 7.0), 20.0, today, null, today)
-        assertEquals(13.0, f.neededPerDay!!, 1e-9)
-    }
-
-    @Test fun forecast_deadlineInPast_needsEverythingToday() {
-        val f = goalForecast(totals(0 to 7.0), 20.0, day(-30), null, today)
-        assertEquals(GoalState.BEHIND, f.state)
-        assertEquals(13.0, f.neededPerDay!!, 1e-9)
-    }
-
-    @Test fun forecast_noDeadline_withBand_projectsAtLowerBound() {
-        // left 100, lower 4 -> ceil(100/4)=25 days. Pace 7/7=1 -> 100 days.
-        val f = goalForecast(totals(0 to 7.0, -10 to 93.0), 200.0, null, band(day(-30), 4.0, 8.0), today)
-        assertEquals(day(25), f.projectedFinish)
-        assertEquals(day(100), f.projectedFinishAtPace)
-        assertEquals(GoalState.BEHIND, f.state)
-        assertEquals(3.0, f.shortfallPerDay!!, 1e-9)
-    }
-
-    @Test fun forecast_noDeadline_withBand_ceilRoundsUp() {
-        val f = goalForecast(emptyMap(), 10.0, null, band(day(-1), 3.0, 5.0), today)
-        assertEquals(day(4), f.projectedFinish) // ceil(10/3)
-    }
-
-    @Test fun forecast_noDeadlineNoBand_projectsAtPace() {
-        val f = goalForecast(totals(0 to 14.0), 100.0, null, null, today) // pace 2, left 86
-        assertEquals(day(43), f.projectedFinish)
-        assertEquals(GoalState.ON_TRACK, f.state)
-    }
-
-    @Test fun forecast_paceZero_noProjection() {
-        val f = goalForecast(emptyMap(), 100.0, null, null, today)
-        assertNull(f.projectedFinish)
-        assertNull(f.projectedFinishAtPace)
-        assertEquals(GoalState.BEHIND, f.state)
-    }
-
-    @Test fun forecast_done() {
-        val f = goalForecast(totals(0 to 100.0), 100.0, day(-3), null, today)
-        assertEquals(GoalState.DONE, f.state)
+    @Test fun neededPerDay_isLeftOverDaysRemaining() {
+        assertEquals(10.0, neededPerDay(100.0, day(9), today), 1e-9) // 100 pages in 10 days
+        assertEquals(13.0, neededPerDay(13.0, today, today), 1e-9)
+        assertEquals(193.0, neededPerDay(193.0, day(-30), today), 1e-9) // deadline gone: all of it, today
+        assertEquals(0.0, neededPerDay(0.0, day(5), today), 0.0)
     }
 
     // ---------- daily streaks ----------
