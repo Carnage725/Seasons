@@ -25,6 +25,12 @@ interface TrackerDao {
     @Insert
     suspend fun insert(tracker: Tracker): Long
 
+    @Insert
+    suspend fun insertAll(trackers: List<Tracker>)
+
+    @Query("DELETE FROM trackers")
+    suspend fun deleteAll()
+
     @Update
     suspend fun update(tracker: Tracker)
 
@@ -47,6 +53,12 @@ interface BandDao {
     @Query("SELECT * FROM band_history")
     suspend fun getAll(): List<BandHistory>
 
+    @Insert
+    suspend fun insertAll(rows: List<BandHistory>)
+
+    @Query("DELETE FROM band_history")
+    suspend fun deleteAll()
+
     // Same tracker + same effectiveFrom replaces the old row (unique index).
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(band: BandHistory): Long
@@ -62,6 +74,12 @@ interface LogDao {
 
     @Query("SELECT * FROM log_entries")
     suspend fun getAll(): List<LogEntry>
+
+    @Insert
+    suspend fun insertAll(entries: List<LogEntry>)
+
+    @Query("DELETE FROM log_entries")
+    suspend fun deleteAll()
 
     @Query("SELECT * FROM log_entries WHERE id = :id")
     suspend fun get(id: Long): LogEntry?
@@ -83,6 +101,12 @@ interface GroupDao {
 
     @Query("SELECT * FROM groups ORDER BY sortOrder, id")
     suspend fun getAll(): List<TrackerGroup>
+
+    @Insert
+    suspend fun insertAll(groups: List<TrackerGroup>)
+
+    @Query("DELETE FROM groups")
+    suspend fun deleteAll()
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM groups")
     suspend fun maxSortOrder(): Int
@@ -111,6 +135,9 @@ interface SettingsDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(settings: Settings)
+
+    @Query("DELETE FROM settings")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -120,6 +147,12 @@ interface SeasonSummaryDao {
 
     @Query("SELECT * FROM season_summaries ORDER BY startDate")
     suspend fun getAll(): List<SeasonSummary>
+
+    @Insert
+    suspend fun insertAll(summaries: List<SeasonSummary>)
+
+    @Query("DELETE FROM season_summaries")
+    suspend fun deleteAll()
 
     @Insert
     suspend fun insert(summary: SeasonSummary): Long

@@ -81,6 +81,41 @@ class Repository(private val db: AppDatabase) {
         settings.insertIfAbsent(Settings(seasonStartDate = seasonStart, seasonLength = seasonLength))
     }
 
+    // ---------- Backup ----------
+
+    /** Everything in the app, for the backup file and the CSV. */
+    suspend fun readBackup(): BackupData = db.withTransaction {
+        BackupData(
+            settings = settings.get(),
+            groups = groups.getAll(),
+            trackers = trackers.getAll(),
+            bands = bands.getAll(),
+            logs = logs.getAll(),
+            summaries = summaries.getAll(),
+        )
+    }
+
+    /**
+     * Replaces ALL data with [data] (already checked by [parseBackup]), in one transaction.
+     * If anything fails, the transaction rolls back and the old data is untouched.
+     */
+    suspend fun replaceAll(data: BackupData) = db.withTransaction {
+        // Children first, so no foreign key is ever broken on the way.
+        logs.deleteAll()
+        bands.deleteAll()
+        trackers.deleteAll()
+        groups.deleteAll()
+        summaries.deleteAll()
+        settings.deleteAll()
+
+        groups.insertAll(data.groups)
+        trackers.insertAll(data.trackers)
+        bands.insertAll(data.bands)
+        logs.insertAll(data.logs)
+        summaries.insertAll(data.summaries)
+        data.settings?.let { settings.upsert(it) }
+    }
+
     private val seasonLock = Mutex()
 
     /** Saves a frozen snapshot for every season that has ended and has none yet. Safe to call many times. */

@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.seasons.app.ui.ArchiveScreen
+import com.seasons.app.ui.BackupViewModel
 import com.seasons.app.ui.EXTRA_GROUP_ID
 import com.seasons.app.ui.EXTRA_TRACKER_ID
 import com.seasons.app.ui.SeasonSummaryScreen
@@ -104,7 +105,8 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
         }
         Screen.Settings -> {
             val vm: SeasonsViewModel = viewModel(key = "settings", factory = viewModelFactory { initializer { SeasonsViewModel(repository()) } })
-            SettingsScreen(vm, onBack = nav::pop)
+            val backup: BackupViewModel = viewModel(factory = viewModelFactory { initializer { BackupViewModel(repository()) } })
+            SettingsScreen(vm, backup, onBack = nav::pop)
         }
         Screen.SeasonsHistory -> {
             val vm: SeasonsViewModel = viewModel(key = "history", factory = viewModelFactory { initializer { SeasonsViewModel(repository()) } })

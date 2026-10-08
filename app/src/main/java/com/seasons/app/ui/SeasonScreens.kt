@@ -101,7 +101,7 @@ fun SetupDialog(onSave: (LocalDate, Int) -> Unit) {
 // ---------- Settings ----------
 
 @Composable
-fun SettingsScreen(vm: SeasonsViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: SeasonsViewModel, backup: BackupViewModel, onBack: () -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val items by vm.items.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
@@ -156,6 +156,7 @@ fun SettingsScreen(vm: SeasonsViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+            item { BackupSection(backup) }
         }
     }
 }

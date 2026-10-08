@@ -8,7 +8,12 @@ import com.seasons.app.data.AppDatabase
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Settings
+import com.seasons.app.data.BackupData
+import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Tracker
+import com.seasons.app.data.logsToCsv
+import com.seasons.app.data.parseBackup
+import com.seasons.app.data.toJson
 import com.seasons.app.data.parseSeasonPayload
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.data.TrackerType
@@ -399,5 +404,117 @@ class RepositoryTest {
         repo.markSummarySeen(3)
         repo.markSummarySeen(1)
         assertEquals(3, repo.observeSettings().first()!!.lastSeasonSummarySeen)
+    }
+
+    // ---------- backup ----------
+
+    private suspend fun fillSampleData(): Long {
+        repo.saveFirstSettings(today.minusDays(40), 30)
+        val group = repo.addGroup("Study, \"deep\"", 5)
+        val a = repo.createTracker(goal().copy(name = "Mom é 日本", groupId = group), null, null)
+        val b = repo.createTracker(ongoing(), 3.0, 6.0)
+        repo.changeBand(b, today.minusDays(2), 5.5, 8.0)
+        repo.addLog(a, today, 12.5, today)
+        repo.addLog(a, today.minusDays(3), 0.1 + 0.2, today)
+        repo.addLog(b, today.minusDays(1), 4.0, today)
+        repo.closeFinishedSeasons(today)
+        repo.markSummarySeen(1)
+        return a
+    }
+
+    @Test fun backup_exportThenImportIntoEmptyDatabase_isIdentical() = runBlocking {
+        fillSampleData()
+        val before = repo.readBackup()
+        assertTrue(before.summaries.isNotEmpty())
+        val text = before.toJson(java.time.Instant.now())
+
+        db.clearAllTables()
+        assertTrue(repo.readBackup().trackers.isEmpty())
+        repo.replaceAll(parseBackup(text))
+
+        val after = repo.readBackup()
+        assertEquals(before.settings, after.settings)
+        assertEquals(before.groups.sortedBy { it.id }, after.groups.sortedBy { it.id })
+        assertEquals(before.trackers.sortedBy { it.id }, after.trackers.sortedBy { it.id })
+        assertEquals(before.bands.sortedBy { it.id }, after.bands.sortedBy { it.id })
+        assertEquals(before.logs.sortedBy { it.id }, after.logs.sortedBy { it.id })
+        assertEquals(before.summaries.sortedBy { it.id }, after.summaries.sortedBy { it.id })
+    }
+
+    @Test fun backup_import_replacesExistingData() = runBlocking {
+        val backup = run {
+            fillSampleData()
+            repo.readBackup()
+        }
+        db.clearAllTables()
+        // Something else is in the app when the import happens.
+        val other = repo.createTracker(goal().copy(name = "Will be gone"), null, null)
+        repo.addLog(other, today, 9.0, today)
+        repo.addGroup("Gone group", 1)
+
+        repo.replaceAll(backup)
+
+        val names = repo.readBackup().trackers.map { it.name }
+        assertTrue("Will be gone" !in names)
+        assertEquals(backup.trackers.size, names.size)
+        assertEquals(backup.logs.size, repo.readBackup().logs.size)
+        assertEquals(backup.groups.map { it.name }, repo.readBackup().groups.map { it.name })
+    }
+
+    @Test fun backup_importWithoutSettings_clearsSettings() = runBlocking {
+        repo.saveFirstSettings(today, 77)
+        repo.replaceAll(BackupData(null, emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
+        assertNull(repo.observeSettings().first())
+    }
+
+    @Test fun backup_failedImport_leavesOldDataUntouched() = runBlocking {
+        fillSampleData()
+        val before = repo.readBackup()
+
+        // A log that points at a tracker that does not exist breaks a foreign key halfway through the import.
+        val broken = BackupData(
+            settings = null,
+            groups = emptyList(),
+            trackers = listOf(goal().copy(id = 1)),
+            bands = emptyList(),
+            logs = listOf(LogEntry(id = 1, trackerId = 777, date = today, amount = 1.0, createdAt = 0)),
+            summaries = emptyList(),
+        )
+        try {
+            repo.replaceAll(broken)
+            fail("expected the import to fail")
+        } catch (_: Exception) {
+        }
+
+        val after = repo.readBackup()
+        assertEquals(before.trackers.sortedBy { it.id }, after.trackers.sortedBy { it.id })
+        assertEquals(before.logs.sortedBy { it.id }, after.logs.sortedBy { it.id })
+        assertEquals(before.groups.sortedBy { it.id }, after.groups.sortedBy { it.id })
+        assertEquals(before.bands.sortedBy { it.id }, after.bands.sortedBy { it.id })
+        assertEquals(before.summaries.sortedBy { it.id }, after.summaries.sortedBy { it.id })
+        assertEquals(before.settings, after.settings)
+    }
+
+    @Test fun backup_newIdsAfterImportContinuePastTheImportedOnes() = runBlocking {
+        val backup = BackupData(
+            settings = null,
+            groups = emptyList(),
+            trackers = listOf(goal().copy(id = 40)),
+            bands = emptyList(),
+            logs = emptyList(),
+            summaries = emptyList(),
+        )
+        repo.replaceAll(backup)
+        val next = repo.createTracker(goal(), null, null)
+        assertTrue("new id $next should be above 40", next > 40)
+    }
+
+    @Test fun backup_csvFromTheRealDatabase() = runBlocking {
+        fillSampleData()
+        val data = repo.readBackup()
+        val csv = logsToCsv(data.trackers, data.groups, data.logs)
+        val rows = csv.split("\r\n").filter { it.isNotEmpty() }
+        assertEquals(4, rows.size) // header + 3 logs
+        assertTrue(rows[1].startsWith("${today.minusDays(3)},Mom é 日本,\"Study, \"\"deep\"\"\","))
     }
 }
