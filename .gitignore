@@ -10,3 +10,6 @@ captures/
 keystore.properties
 *.jks
 *.keystore
+
+# Local assistant instructions, not published
+CLAUDE.md
