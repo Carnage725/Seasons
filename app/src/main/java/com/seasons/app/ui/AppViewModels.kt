@@ -30,6 +30,12 @@ class NavViewModel : ViewModel() {
         stack.add(screen)
     }
 
+    /** A widget was tapped: replace the whole stack with Home plus the target screen. */
+    fun openLink(trackerId: Long?, groupId: Long?) {
+        stack.clear()
+        stack.addAll(screensForLink(trackerId, groupId))
+    }
+
     fun pop() {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
     }

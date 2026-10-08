@@ -31,6 +31,18 @@ data class HomeRow(
     val progress: Float,
 )
 
+/** "124 / 200 pages" for a goal, "5 laps today" for an ongoing tracker. Shared by Home, widgets and previews. */
+fun HomeRow.mainText(): String =
+    if (tracker.type == TrackerType.GOAL) {
+        "${formatAmount(done)} / ${formatAmount(tracker.target ?: 0.0)} ${tracker.unit}"
+    } else {
+        "${formatAmount(todayTotal)} ${tracker.unit} today"
+    }
+
+fun HomeRow.statusText(): String = if (metToday) "Met today" else "Not yet"
+
+fun HomeRow.streakText(): String = "Streak $streak" + if (tracker.bandPeriod == BandPeriod.WEEKLY) " wk" else ""
+
 fun List<LogEntry>.dailyTotals(): Map<LocalDate, Double> =
     groupBy { it.date }.mapValues { (_, entries) -> entries.sumOf { it.amount } }
 

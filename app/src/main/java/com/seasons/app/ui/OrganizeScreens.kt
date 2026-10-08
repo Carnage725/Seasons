@@ -1,6 +1,7 @@
 package com.seasons.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -178,6 +179,9 @@ fun GroupDetailScreen(
                 item {
                     Text("No trackers in this group. Pick it when you create or edit a tracker.", color = Grey1)
                 }
+            } else {
+                item { GroupWidgetPreview(group, members) }
+                item { Text("Trackers", color = Grey1, style = MaterialTheme.typography.labelLarge) }
             }
             items(members, key = { it.tracker.id }) { row ->
                 TrackerRow(row, onClick = { onOpenTracker(row.tracker.id) })
@@ -298,6 +302,53 @@ fun ArchiveScreen(vm: ArchiveViewModel, onBack: () -> Unit) {
                         Text(t.name, style = MaterialTheme.typography.titleMedium)
                         Text("Started ${formatDate(t.startDate, LocalDate.now())}", color = Grey1)
                     }
+                }
+            }
+        }
+    }
+}
+
+
+/** How the group widget looks on the home screen. Same data and texts as the widget. */
+@Composable
+private fun GroupWidgetPreview(group: com.seasons.app.data.TrackerGroup, rows: List<HomeRow>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Widget preview", color = Grey1, style = MaterialTheme.typography.labelLarge)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(AppBackground)
+                .border(1.dp, Grey3, RoundedCornerShape(16.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(Color(group.color)))
+                Spacer(Modifier.width(6.dp))
+                Text(group.name, color = Grey1, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            }
+            rows.forEach { row ->
+                val color = Color(row.tracker.color)
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                        Spacer(Modifier.width(6.dp))
+                        Text(row.tracker.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                        Text(row.statusText(), color = if (row.metToday) color else Grey1, fontSize = 11.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(row.streakText(), color = Grey1, fontSize = 11.sp)
+                    }
+                    Text(row.mainText(), color = Grey1, fontSize = 12.sp)
+                    Spacer(Modifier.height(3.dp))
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { row.progress },
+                        modifier = Modifier.fillMaxWidth().height(3.dp),
+                        color = color,
+                        trackColor = Grey3,
+                        gapSize = 0.dp,
+                        drawStopIndicator = {},
+                    )
                 }
             }
         }

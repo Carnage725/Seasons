@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tracker_widget_label">Seasons tracker</string>
+    <string name="tracker_widget_description">One tracker: how much is done, how much is left, and today.</string>
+    <string name="group_widget_label">Seasons group</string>
+    <string name="group_widget_description">All trackers in a group, with today and streak.</string>
+</resources>

@@ -41,6 +41,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
 
+    implementation("androidx.glance:glance-appwidget:1.2.0")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
+
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")

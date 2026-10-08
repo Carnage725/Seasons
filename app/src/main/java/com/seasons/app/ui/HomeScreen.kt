@@ -114,21 +114,16 @@ private fun SectionHeader(group: com.seasons.app.data.TrackerGroup?) {
 internal fun TrackerRow(row: HomeRow, onClick: () -> Unit) {
     val t = row.tracker
     val color = Color(t.color)
-    val main = if (t.type == TrackerType.GOAL) {
-        "${formatAmount(row.done)} / ${formatAmount(t.target ?: 0.0)} ${t.unit}"
-    } else {
-        "${formatAmount(row.todayTotal)} ${t.unit} today"
-    }
-    val weekly = t.bandPeriod == BandPeriod.WEEKLY
+    val main = row.mainText()
 
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(color))
             Spacer(Modifier.width(10.dp))
             Text(t.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(if (row.metToday) "Met today" else "Not yet", color = if (row.metToday) color else Grey1)
+            Text(row.statusText(), color = if (row.metToday) color else Grey1)
             Spacer(Modifier.width(12.dp))
-            Text("Streak ${row.streak}${if (weekly) " wk" else ""}", color = Grey1)
+            Text(row.streakText(), color = Grey1)
         }
         Spacer(Modifier.height(6.dp))
         Text(main, fontSize = 22.sp, fontWeight = FontWeight.Medium)

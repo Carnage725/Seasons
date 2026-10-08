@@ -1,6 +1,8 @@
 package com.seasons.app
 
+import android.content.Intent
 import android.os.Bundle
+import androidx.activity.viewModels
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -12,6 +14,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.seasons.app.ui.ArchiveScreen
+import com.seasons.app.ui.EXTRA_GROUP_ID
+import com.seasons.app.ui.EXTRA_TRACKER_ID
 import com.seasons.app.ui.SeasonSummaryScreen
 import com.seasons.app.ui.SeasonsHistoryScreen
 import com.seasons.app.ui.SeasonsViewModel
@@ -34,11 +38,32 @@ import com.seasons.app.ui.TrackerViewModel
 import com.seasons.app.ui.repository
 
 class MainActivity : ComponentActivity() {
+    private val nav: NavViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Only on a fresh start. After rotation the saved back stack is already right.
+        if (savedInstanceState == null) handleLink(intent)
         setContent {
             SeasonsTheme { AppRoot() }
         }
+    }
+
+    // singleTop: a widget tap while the app is open arrives here instead of making a second Activity.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLink(intent)
+    }
+
+    private fun handleLink(intent: Intent?) {
+        val trackerId = intent?.getLongExtra(EXTRA_TRACKER_ID, -1L)?.takeIf { it >= 0 }
+        val groupId = intent?.getLongExtra(EXTRA_GROUP_ID, -1L)?.takeIf { it >= 0 }
+        if (trackerId == null && groupId == null) return
+        nav.openLink(trackerId, groupId)
+        // Used up: do not open it again if the Activity is recreated.
+        intent.removeExtra(EXTRA_TRACKER_ID)
+        intent.removeExtra(EXTRA_GROUP_ID)
     }
 }
 
