@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -99,9 +101,9 @@ fun ChartTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 // ---------- Bar chart (Daily and Weekly) ----------
 
 @Composable
-fun BarChart(model: BarChartModel, color: Color, modifier: Modifier = Modifier) {
+fun BarChart(model: BarChartModel, color: Color, description: String, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
-    Canvas(modifier.fillMaxWidth().height(190.dp)) {
+    Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
         val rightPad = 44.dp.toPx()
         val topPad = 20.dp.toPx()
         val bottomPad = 22.dp.toPx()
@@ -164,6 +166,7 @@ fun SeasonHeatmap(model: SeasonModel, color: Color, unit: String, today: LocalDa
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(cols / 7f)
+                .semantics { contentDescription = describeSeason(model) }
                 .pointerInput(model) {
                     detectTapGestures { tap ->
                         val pitch = size.width / cols.toFloat()
@@ -216,9 +219,9 @@ fun SeasonHeatmap(model: SeasonModel, color: Color, unit: String, today: LocalDa
 // ---------- On track (goals) ----------
 
 @Composable
-fun OnTrackChart(model: OnTrackModel, color: Color, modifier: Modifier = Modifier) {
+fun OnTrackChart(model: OnTrackModel, color: Color, description: String, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
-    Canvas(modifier.fillMaxWidth().height(190.dp)) {
+    Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
         val rightPad = 84.dp.toPx()
         val topPad = 20.dp.toPx()
         val bottomPad = 22.dp.toPx()

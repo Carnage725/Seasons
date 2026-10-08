@@ -109,3 +109,13 @@
 - **Confirmation dialog** names what the file holds ("3 trackers, 48 log entries, ...") and says that it replaces all current data and cannot be undone. No automatic safety copy (agreed).
 - **CSV of logs:** `date,tracker,group,amount,unit,logged_at`, oldest first, CRLF line ends, RFC 4180 quoting. Amounts have no trailing zeros or exponent. A text field that starts with `=`, `+`, `-`, `@`, tab or CR gets a leading apostrophe so a spreadsheet cannot run it as a formula.
 - **Import size limit:** 100 MB.
+
+## Phase 9 (polish pass)
+- **Group, Change band, Change season and first-launch dialogs** now use `FormDialog`: it shrinks above the keyboard and its content scrolls, so Save and Cancel are never hidden. (The auto-opening keyboard from the Phase 2 fix had covered the buttons in the group dialog.)
+- **Home:** the five links (Groups, Trophies, Archive, Seasons, Settings) are one "Menu" next to the title. Status ("Met today") and streak are stacked on the right of each row, so a large system font cannot squeeze the tracker name into a thin column. Checked at font scale 2.0 and 1.0.
+- **Neutral greys:** Material's dark containers are purple-tinted by default. The theme now sets neutral greys for dialogs, menus and containers (`#1E1E1E`, `#242424`, `#2C2C2C`) and no surface tint.
+- **Contrast:** the one piece of text that used `#616161` (the "days" under the streak numbers) now uses `#9E9E9E`. The dark grey is kept for lines and dim bars only.
+- **Screen-reader descriptions** for the Daily, Weekly and On track charts and the Season heatmap (pure functions, unit-tested).
+- **Widget picker previews** (vector drawables) for both widgets.
+- **Left as is:** amber for Delete buttons and error text (it is the only warning color), free-text units ("1 sessions"), and no app icon (not in the spec).
+- **System font size:** while testing I changed the phone's font size to 2.0 and 1.0, then set it back to your original 1.15.

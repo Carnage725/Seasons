@@ -232,3 +232,22 @@ fun buildOnTrackChart(
         lastLabel = shortDate(endDate, today),
     )
 }
+
+
+// ---------- Spoken descriptions (for screen readers) ----------
+
+fun describeBarChart(title: String, model: BarChartModel, unit: String): String = buildString {
+    val last = model.bars.last()
+    append(title).append(". ").append(model.lastLabel).append(": ").append(formatAmount(last.value)).append(' ').append(unit).append('.')
+    model.bandLabel?.let { append(" Band ").append(it).append('.') }
+    append(" Highest bar ").append(formatAmount(model.bars.maxOf { it.value })).append('.')
+}
+
+fun describeSeason(model: SeasonModel): String =
+    "Season ${model.number} heatmap, day ${model.dayOfSeason} of ${model.length}. " +
+        "${model.cells.count { it.met }} days met their goal. Tap a day to hear its value below."
+
+fun describeOnTrack(model: OnTrackModel, unit: String): String = buildString {
+    append("Progress chart. Done ").append(model.cumulativeLabel).append(" of ").append(formatAmount(model.target)).append(' ').append(unit).append('.')
+    model.lineLabel?.let { append(" Needed pace line reaches ").append(it).append('.') }
+}

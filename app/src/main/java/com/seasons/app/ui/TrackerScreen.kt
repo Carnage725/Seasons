@@ -46,6 +46,8 @@ import com.seasons.app.data.TrackerStatus
 import com.seasons.app.ui.charts.BarChart
 import com.seasons.app.ui.charts.ChartTabs
 import com.seasons.app.ui.charts.OnTrackChart
+import com.seasons.app.ui.charts.describeBarChart
+import com.seasons.app.ui.charts.describeOnTrack
 import com.seasons.app.ui.charts.SeasonHeatmap
 import java.time.LocalDate
 
@@ -307,8 +309,8 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
         ChartTabs(tabs, index, onSelect = { selected = it })
         Spacer(Modifier.height(12.dp))
         when (tabs[index]) {
-            "Daily" -> BarChart(ui.charts.daily, color)
-            "Weekly" -> BarChart(ui.charts.weekly, color)
+            "Daily" -> BarChart(ui.charts.daily, color, describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit))
+            "Weekly" -> BarChart(ui.charts.weekly, color, describeBarChart("Weekly chart, last 11 weeks", ui.charts.weekly, ui.tracker.unit))
             "Season" -> {
                 val season = ui.charts.season
                 if (season == null) {
@@ -317,7 +319,7 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
                     SeasonHeatmap(season, color, ui.tracker.unit, today)
                 }
             }
-            else -> OnTrackChart(ui.charts.onTrack!!, color)
+            else -> OnTrackChart(ui.charts.onTrack!!, color, describeOnTrack(ui.charts.onTrack, ui.tracker.unit))
         }
     }
 }
@@ -327,7 +329,7 @@ private fun StreakStat(label: String, value: String, unit: String) {
     Column {
         Text(value, fontSize = 24.sp, fontWeight = FontWeight.Medium)
         Text(label, color = Grey1, style = MaterialTheme.typography.bodySmall)
-        Text(unit, color = Grey2, style = MaterialTheme.typography.bodySmall)
+        Text(unit, color = Grey1, style = MaterialTheme.typography.bodySmall)
     }
 }
 

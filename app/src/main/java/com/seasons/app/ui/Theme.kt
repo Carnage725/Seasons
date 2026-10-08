@@ -25,6 +25,13 @@ private val colors = darkColorScheme(
     secondaryContainer = Grey3,
     onSecondaryContainer = TextMain,
     outline = Grey2,
+    // Material's default dark containers are purple-tinted. The spec says grey.
+    surfaceContainerLowest = Color(0xFF0E0E0E),
+    surfaceContainerLow = AppSurface,
+    surfaceContainer = AppSurface,
+    surfaceContainerHigh = Color(0xFF242424),
+    surfaceContainerHighest = Grey3,
+    surfaceTint = Color.Transparent,
     error = Amber,
 )
 

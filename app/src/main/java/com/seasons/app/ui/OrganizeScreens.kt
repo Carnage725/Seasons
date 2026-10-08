@@ -335,9 +335,11 @@ private fun GroupWidgetPreview(group: com.seasons.app.data.TrackerGroup, rows: L
                         Box(Modifier.size(8.dp).clip(CircleShape).background(color))
                         Spacer(Modifier.width(6.dp))
                         Text(row.tracker.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                        Text(row.statusText(), color = if (row.metToday) color else Grey1, fontSize = 11.sp)
                         Spacer(Modifier.width(8.dp))
-                        Text(row.streakText(), color = Grey1, fontSize = 11.sp)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(row.statusText(), color = if (row.metToday) color else Grey1, fontSize = 11.sp)
+                            Text(row.streakText(), color = Grey1, fontSize = 11.sp)
+                        }
                     }
                     Text(row.mainText(), color = Grey1, fontSize = 12.sp)
                     Spacer(Modifier.height(3.dp))

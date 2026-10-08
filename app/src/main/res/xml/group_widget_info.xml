@@ -12,5 +12,6 @@
     android:configure="com.seasons.app.widget.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable"
     android:widgetCategory="home_screen"
+    android:previewImage="@drawable/widget_preview_group"
     android:label="@string/group_widget_label"
     android:description="@string/group_widget_description" />

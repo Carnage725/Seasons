@@ -25,10 +25,15 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,14 +73,25 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 item {
-                    Column {
-                        Text("Seasons", style = MaterialTheme.typography.headlineMedium, color = Grey1)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = onGroups) { Text("Groups") }
-                            TextButton(onClick = onTrophies) { Text("Trophies") }
-                            TextButton(onClick = onArchive) { Text("Archive") }
-                            TextButton(onClick = onSeasons) { Text("Seasons") }
-                            TextButton(onClick = onSettings) { Text("Settings") }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Seasons", style = MaterialTheme.typography.headlineMedium, color = Grey1, modifier = Modifier.weight(1f))
+                        var menuOpen by rememberSaveable { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { menuOpen = true }) { Text("Menu") }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                listOf(
+                                    "Groups" to onGroups,
+                                    "Trophies" to onTrophies,
+                                    "Archive" to onArchive,
+                                    "Seasons" to onSeasons,
+                                    "Settings" to onSettings,
+                                ).forEach { (label, action) ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        menuOpen = false
+                                        action()
+                                    })
+                                }
+                            }
                         }
                     }
                 }
@@ -120,10 +136,13 @@ internal fun TrackerRow(row: HomeRow, onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(color))
             Spacer(Modifier.width(10.dp))
+            // The name gets the width. Status and streak stack on the right so a large system font cannot squeeze the name.
             Text(t.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(row.statusText(), color = if (row.metToday) color else Grey1)
             Spacer(Modifier.width(12.dp))
-            Text(row.streakText(), color = Grey1)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(row.statusText(), color = if (row.metToday) color else Grey1, style = MaterialTheme.typography.bodyMedium)
+                Text(row.streakText(), color = Grey1, style = MaterialTheme.typography.bodySmall)
+            }
         }
         Spacer(Modifier.height(6.dp))
         Text(main, fontSize = 22.sp, fontWeight = FontWeight.Medium)

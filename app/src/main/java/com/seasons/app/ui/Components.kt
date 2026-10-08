@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
@@ -31,6 +33,14 @@ import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -203,6 +213,50 @@ fun EditLogDialog(
     )
 }
 
+
+/**
+ * A dialog that stays usable with the keyboard open: it shrinks above the keyboard and its content scrolls,
+ * so the buttons are never hidden. [onDismiss] null means it cannot be dismissed (first-launch setup).
+ */
+@Composable
+fun FormDialog(
+    title: String,
+    confirmText: String,
+    confirmEnabled: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: (() -> Unit)?,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Dialog(
+        onDismissRequest = { onDismiss?.invoke() },
+        properties = DialogProperties(
+            dismissOnBackPress = onDismiss != null,
+            dismissOnClickOutside = onDismiss != null,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Box(Modifier.fillMaxSize().imePadding().padding(24.dp), contentAlignment = Alignment.Center) {
+            Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                Column(Modifier.padding(24.dp)) {
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(16.dp))
+                    Column(
+                        Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        content = content,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        if (onDismiss != null) TextButton(onClick = onDismiss) { Text("Cancel") }
+                        TextButton(enabled = confirmEnabled, onClick = onConfirm) { Text(confirmText) }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** Adds a new band row. Old rows stay, so history is never rewritten. */
 @Composable
 fun ChangeBandDialog(
@@ -231,56 +285,45 @@ fun ChangeBandDialog(
         )
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Change band") },
-        text = {
-            Column {
-                Row {
-                    OutlinedTextField(
-                        value = lower,
-                        onValueChange = { lower = it },
-                        singleLine = true,
-                        label = { Text("Lower") },
-                        modifier = Modifier.weight(1f).focusRequester(focus),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    OutlinedTextField(
-                        value = upper,
-                        onValueChange = { upper = it },
-                        singleLine = true,
-                        label = { Text("Upper") },
-                        modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    )
-                }
-                Text(
-                    if (period == BandPeriod.WEEKLY) "active days per week" else "per day",
-                    color = Grey1,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text("Effective from", color = Grey1, style = MaterialTheme.typography.labelLarge)
-                TextButton(onClick = { picking = true }) { Text(formatDate(date, today)) }
-                Text("Earlier days keep their old band.", color = Grey1, style = MaterialTheme.typography.bodySmall)
-                if (error != null && (lower.isNotBlank() || upper.isNotBlank())) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(error, color = Amber)
-                }
-            }
+    FormDialog(
+        title = "Change band",
+        confirmText = "Save",
+        confirmEnabled = error == null,
+        onConfirm = {
+            onSave(date, parseAmount(lower)!!, parseAmount(upper)!!)
+            onDismiss()
         },
-        confirmButton = {
-            TextButton(
-                enabled = error == null,
-                onClick = {
-                    onSave(date, parseAmount(lower)!!, parseAmount(upper)!!)
-                    onDismiss()
-                },
-            ) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+        onDismiss = onDismiss,
+    ) {
+        Row {
+            OutlinedTextField(
+                value = lower,
+                onValueChange = { lower = it },
+                singleLine = true,
+                label = { Text("Lower") },
+                modifier = Modifier.weight(1f).focusRequester(focus),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+            Spacer(Modifier.width(12.dp))
+            OutlinedTextField(
+                value = upper,
+                onValueChange = { upper = it },
+                singleLine = true,
+                label = { Text("Upper") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+        }
+        Text(
+            if (period == BandPeriod.WEEKLY) "active days per week" else "per day",
+            color = Grey1,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text("Effective from", color = Grey1, style = MaterialTheme.typography.labelLarge)
+        TextButton(onClick = { picking = true }) { Text(formatDate(date, today)) }
+        Text("Earlier days keep their old band.", color = Grey1, style = MaterialTheme.typography.bodySmall)
+        if (error != null && (lower.isNotBlank() || upper.isNotBlank())) Text(error, color = Amber)
+    }
 }
 
 
@@ -341,27 +384,20 @@ fun GroupDialog(
     var name by rememberSaveable { mutableStateOf(initialName) }
     var color by rememberSaveable { mutableStateOf(initialColor) }
     val focus = rememberAutoFocus()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it }, singleLine = true,
-                    label = { Text("Group name") }, modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                )
-                ColorPicker(color) { color = it }
-            }
+    FormDialog(
+        title = title,
+        confirmText = "Save",
+        confirmEnabled = name.isNotBlank(),
+        onConfirm = {
+            onSave(name, color)
+            onDismiss()
         },
-        confirmButton = {
-            TextButton(
-                enabled = name.isNotBlank(),
-                onClick = {
-                    onSave(name, color)
-                    onDismiss()
-                },
-            ) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+        onDismiss = onDismiss,
+    ) {
+        OutlinedTextField(
+            value = name, onValueChange = { name = it }, singleLine = true,
+            label = { Text("Group name") }, modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        )
+        ColorPicker(color) { color = it }
+    }
 }

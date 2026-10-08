@@ -5,6 +5,9 @@ import com.seasons.app.data.Tracker
 import com.seasons.app.data.TrackerType
 import com.seasons.app.domain.Band
 import com.seasons.app.ui.charts.buildDailyChart
+import com.seasons.app.ui.charts.describeBarChart
+import com.seasons.app.ui.charts.describeOnTrack
+import com.seasons.app.ui.charts.describeSeason
 import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
@@ -243,4 +246,38 @@ class ChartModelsTest {
     }
 
     @Test fun onTrack_notNullForGoal() = assertNotNull(buildOnTrackChart(goal(), emptyMap(), today))
+
+    // ---------- spoken descriptions ----------
+
+    @Test fun describe_barChart_saysLatestBandAndHighest() {
+        val bands = listOf(Band(start, 3.0, 6.0))
+        val m = buildDailyChart(tracker(band = BandPeriod.DAILY), totals(0 to 5.0, -2 to 9.0), bands, today)
+        assertEquals(
+            "Daily chart, last 14 days. Today: 5 laps. Band 3–6. Highest bar 9.",
+            describeBarChart("Daily chart, last 14 days", m, "laps"),
+        )
+    }
+
+    @Test fun describe_barChart_noBand() {
+        val m = buildDailyChart(tracker(), totals(0 to 2.5), emptyList(), today)
+        assertEquals("Daily chart. Today: 2.5 pages. Highest bar 2.5.", describeBarChart("Daily chart", m, "pages"))
+    }
+
+    @Test fun describe_season_countsMetDays() {
+        val m = buildSeasonModel(tracker(), totals(0 to 4.0, -1 to 1.0), emptyList(), today, d(-10), 30)!!
+        assertEquals(
+            "Season 1 heatmap, day 11 of 30. 2 days met their goal. Tap a day to hear its value below.",
+            describeSeason(m),
+        )
+    }
+
+    @Test fun describe_onTrack_withAndWithoutDeadline() {
+        val withDeadline = buildOnTrackChart(goal(deadline = d(6)), goalLogs, today)!!
+        assertEquals(
+            "Progress chart. Done 15 of 100 pages. Needed pace line reaches 100 by Oct 13.",
+            describeOnTrack(withDeadline, "pages"),
+        )
+        val without = buildOnTrackChart(goal(), goalLogs, today)!!
+        assertEquals("Progress chart. Done 15 of 100 pages.", describeOnTrack(without, "pages"))
+    }
 }

@@ -73,29 +73,26 @@ fun SetupDialog(onSave: (LocalDate, Int) -> Unit) {
         DatePickerModal(initial = start, min = null, max = today, onPick = { start = it }, onDismiss = { picking = false })
     }
 
-    AlertDialog(
-        onDismissRequest = {},
-        title = { Text("Set up your seasons") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("A season is a block of days to look back on. You can change this later in Settings.", color = Grey1)
-                OutlinedTextField(
-                    value = lengthText,
-                    onValueChange = { lengthText = it.filter(Char::isDigit).take(3) },
-                    singleLine = true,
-                    label = { Text("Season length in days") },
-                    isError = !valid,
-                    supportingText = { Text("${Settings.MIN_SEASON_LENGTH} to ${Settings.MAX_SEASON_LENGTH}") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-                Text("First season starts", color = Grey1, style = MaterialTheme.typography.labelLarge)
-                TextButton(onClick = { picking = true }) { Text(formatDate(start, today)) }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = valid, onClick = { onSave(start, length!!) }) { Text("Start") }
-        },
-    )
+    FormDialog(
+        title = "Set up your seasons",
+        confirmText = "Start",
+        confirmEnabled = valid,
+        onConfirm = { onSave(start, length!!) },
+        onDismiss = null,
+    ) {
+        Text("A season is a block of days to look back on. You can change this later in Settings.", color = Grey1)
+        OutlinedTextField(
+            value = lengthText,
+            onValueChange = { lengthText = it.filter(Char::isDigit).take(3) },
+            singleLine = true,
+            label = { Text("Season length in days") },
+            isError = !valid,
+            supportingText = { Text("${Settings.MIN_SEASON_LENGTH} to ${Settings.MAX_SEASON_LENGTH}") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
+        Text("First season starts", color = Grey1, style = MaterialTheme.typography.labelLarge)
+        TextButton(onClick = { picking = true }) { Text(formatDate(start, today)) }
+    }
 }
 
 // ---------- Settings ----------
@@ -187,39 +184,32 @@ private fun ChangeSeasonDialog(
         DatePickerModal(initial = start, min = runningStart, max = today, onPick = { start = it }, onDismiss = { picking = false })
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Change season") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = lengthText,
-                    onValueChange = { lengthText = it.filter(Char::isDigit).take(3) },
-                    singleLine = true,
-                    label = { Text("New season length in days") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-                Text("New length starts on", color = Grey1, style = MaterialTheme.typography.labelLarge)
-                TextButton(onClick = { picking = true }) { Text(formatDate(start, today)) }
-                Text(
-                    "The season running now is saved as a summary, up to the day before this date. Past summaries stay as they are.",
-                    color = Grey1,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (error != null && lengthText.isNotBlank()) Text(error, color = Amber)
-            }
+    FormDialog(
+        title = "Change season",
+        confirmText = "Change",
+        confirmEnabled = error == null,
+        onConfirm = {
+            onSave(length!!, start)
+            onDismiss()
         },
-        confirmButton = {
-            TextButton(
-                enabled = error == null,
-                onClick = {
-                    onSave(length!!, start)
-                    onDismiss()
-                },
-            ) { Text("Change") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+        onDismiss = onDismiss,
+    ) {
+        OutlinedTextField(
+            value = lengthText,
+            onValueChange = { lengthText = it.filter(Char::isDigit).take(3) },
+            singleLine = true,
+            label = { Text("New season length in days") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
+        Text("New length starts on", color = Grey1, style = MaterialTheme.typography.labelLarge)
+        TextButton(onClick = { picking = true }) { Text(formatDate(start, today)) }
+        Text(
+            "The season running now is saved as a summary, up to the day before this date. Past summaries stay as they are.",
+            color = Grey1,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        if (error != null && lengthText.isNotBlank()) Text(error, color = Amber)
+    }
 }
 
 // ---------- History ----------
