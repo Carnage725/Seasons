@@ -15,7 +15,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.seasons.app.ui.ArchiveScreen
 import com.seasons.app.ui.BackupViewModel
-import com.seasons.app.ui.EXTRA_GROUP_ID
 import com.seasons.app.ui.EXTRA_TRACKER_ID
 import com.seasons.app.ui.SeasonSummaryScreen
 import com.seasons.app.ui.SeasonsHistoryScreen
@@ -23,9 +22,6 @@ import com.seasons.app.ui.SeasonsViewModel
 import com.seasons.app.ui.SettingsScreen
 import com.seasons.app.ui.ArchiveViewModel
 import com.seasons.app.ui.FormViewModel
-import com.seasons.app.ui.GroupDetailScreen
-import com.seasons.app.ui.GroupsScreen
-import com.seasons.app.ui.GroupsViewModel
 import com.seasons.app.ui.TrophiesScreen
 import com.seasons.app.ui.TrophiesViewModel
 import com.seasons.app.ui.HomeScreen
@@ -59,12 +55,10 @@ class MainActivity : ComponentActivity() {
 
     private fun handleLink(intent: Intent?) {
         val trackerId = intent?.getLongExtra(EXTRA_TRACKER_ID, -1L)?.takeIf { it >= 0 }
-        val groupId = intent?.getLongExtra(EXTRA_GROUP_ID, -1L)?.takeIf { it >= 0 }
-        if (trackerId == null && groupId == null) return
-        nav.openLink(trackerId, groupId)
+        if (trackerId == null) return
+        nav.openLink(trackerId)
         // Used up: do not open it again if the Activity is recreated.
         intent.removeExtra(EXTRA_TRACKER_ID)
-        intent.removeExtra(EXTRA_GROUP_ID)
     }
 }
 
@@ -84,20 +78,11 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
                 vm = vm,
                 onOpen = { nav.push(Screen.TrackerDetail(it)) },
                 onNew = { nav.push(Screen.TrackerForm(null)) },
-                onGroups = { nav.push(Screen.Groups) },
                 onTrophies = { nav.push(Screen.Trophies) },
                 onArchive = { nav.push(Screen.Archive) },
                 onSeasons = { nav.push(Screen.SeasonsHistory) },
                 onSettings = { nav.push(Screen.Settings) },
             )
-        }
-        Screen.Groups -> {
-            val vm: GroupsViewModel = viewModel(factory = viewModelFactory { initializer { GroupsViewModel(repository()) } })
-            GroupsScreen(vm, onOpenGroup = { nav.push(Screen.GroupDetail(it)) }, onBack = nav::pop)
-        }
-        is Screen.GroupDetail -> {
-            val vm: GroupsViewModel = viewModel(factory = viewModelFactory { initializer { GroupsViewModel(repository()) } })
-            GroupDetailScreen(vm, screen.groupId, onOpenTracker = { nav.push(Screen.TrackerDetail(it)) }, onBack = nav::pop)
         }
         Screen.Trophies -> {
             val vm: TrophiesViewModel = viewModel(factory = viewModelFactory { initializer { TrophiesViewModel(repository()) } })

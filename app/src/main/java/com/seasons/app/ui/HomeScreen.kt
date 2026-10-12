@@ -50,13 +50,12 @@ fun HomeScreen(
     vm: HomeViewModel,
     onOpen: (Long) -> Unit,
     onNew: () -> Unit,
-    onGroups: () -> Unit,
     onTrophies: () -> Unit,
     onArchive: () -> Unit,
     onSeasons: () -> Unit,
     onSettings: () -> Unit,
 ) {
-    val sections by vm.sections.collectAsStateWithLifecycle()
+    val rows by vm.rows.collectAsStateWithLifecycle()
     val needsSetup by vm.needsSetup.collectAsStateWithLifecycle()
     if (needsSetup) SetupDialog(onSave = vm::saveSetup)
     Scaffold(
@@ -67,7 +66,7 @@ fun HomeScreen(
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            val list = sections
+            val list = rows
             LazyColumn(
                 contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -77,10 +76,9 @@ fun HomeScreen(
                         Text("Seasons", style = MaterialTheme.typography.headlineMedium, color = Grey1, modifier = Modifier.weight(1f))
                         var menuOpen by rememberSaveable { mutableStateOf(false) }
                         Box {
-                            TextButton(onClick = { menuOpen = true }) { Text("Menu") }
+                            MoreButton(onClick = { menuOpen = true })
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 listOf(
-                                    "Groups" to onGroups,
                                     "Trophies" to onTrophies,
                                     "Archive" to onArchive,
                                     "Seasons" to onSeasons,
@@ -98,31 +96,11 @@ fun HomeScreen(
                 if (list != null && list.isEmpty()) {
                     item { Text("No trackers yet.\nTap + to add one.", color = Grey1) }
                 }
-                // Headers only when at least one group exists.
-                val showHeaders = list?.any { it.group != null } == true
-                list?.forEach { section ->
-                    if (showHeaders) {
-                        item(key = "header-${section.group?.id ?: "none"}") {
-                            SectionHeader(section.group)
-                        }
-                    }
-                    items(section.rows, key = { it.tracker.id }) { row ->
-                        TrackerRow(row, onClick = { onOpen(row.tracker.id) })
-                    }
+                items(list.orEmpty(), key = { it.tracker.id }) { row ->
+                    TrackerRow(row, onClick = { onOpen(row.tracker.id) })
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SectionHeader(group: com.seasons.app.data.TrackerGroup?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (group != null) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(Color(group.color)))
-            Spacer(Modifier.width(8.dp))
-        }
-        Text(group?.name ?: "Ungrouped", color = Grey1, style = MaterialTheme.typography.labelLarge)
     }
 }
 

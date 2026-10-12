@@ -21,7 +21,6 @@ data class PendingImport(val data: BackupData) {
         get() = listOf(
             count(data.trackers.size, "tracker"),
             count(data.logs.size, "log entry", "log entries"),
-            count(data.groups.size, "group"),
             count(data.summaries.size, "season summary", "season summaries"),
         ).joinToString(", ")
 
@@ -48,7 +47,7 @@ class BackupViewModel(private val repo: Repository) : ViewModel() {
 
     suspend fun logsCsv(): String = withContext(Dispatchers.Default) {
         val data = repo.readBackup()
-        logsToCsv(data.trackers, data.groups, data.logs)
+        logsToCsv(data.trackers, data.logs)
     }
 
     /** Reads, parses and fully checks the file. Nothing is changed yet. */

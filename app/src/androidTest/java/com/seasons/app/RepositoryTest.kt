@@ -171,44 +171,6 @@ class RepositoryTest {
         assertEquals(90, repo.observeSettings().first()!!.seasonLength)
     }
 
-    // ---------- groups ----------
-
-    @Test fun groups_addGetIncreasingSortOrder_andMoveIsSaved() = runBlocking {
-        val a = repo.addGroup("A", 1)
-        val b = repo.addGroup("B", 2)
-        val c = repo.addGroup("C", 3)
-        assertEquals(listOf(a, b, c), repo.observeGroups().first().map { it.id })
-
-        repo.moveGroup(c, up = true)
-        assertEquals(listOf(a, c, b), repo.observeGroups().first().map { it.id })
-        repo.moveGroup(a, up = true) // already first: no change
-        assertEquals(listOf(a, c, b), repo.observeGroups().first().map { it.id })
-    }
-
-    @Test fun groups_renameRecolor() = runBlocking {
-        val id = repo.addGroup("Old", 1)
-        repo.updateGroup(repo.observeGroups().first().first { it.id == id }.copy(name = "New", color = 9))
-        val g = repo.observeGroups().first().first { it.id == id }
-        assertEquals("New", g.name)
-        assertEquals(9, g.color)
-    }
-
-    @Test fun groups_trackerAssignment_andDeleteGroupKeepsTrackers() = runBlocking {
-        val g = repo.addGroup("Study", 1)
-        val keep = repo.createTracker(goal().copy(groupId = g), null, null)
-        val other = repo.createTracker(goal(), null, null)
-        repo.addLog(keep, today, 3.0, today)
-        assertEquals(g, repo.getTracker(keep)!!.groupId)
-        assertNull(repo.getTracker(other)!!.groupId)
-
-        repo.deleteGroup(repo.observeGroups().first().first { it.id == g })
-
-        assertTrue(repo.observeGroups().first().isEmpty())
-        assertNotNull(repo.getTracker(keep))
-        assertNull(repo.getTracker(keep)!!.groupId)
-        assertEquals(1, repo.observeLogs(keep).first().size)
-    }
-
     // ---------- archive ----------
 
     @Test fun archive_thenContinue_keepsEverything() = runBlocking {
@@ -226,8 +188,7 @@ class RepositoryTest {
     }
 
     @Test fun archive_startFresh_makesNewTrackerAndKeepsOldAsHistory() = runBlocking {
-        val g = repo.addGroup("Fitness", 1)
-        val id = repo.createTracker(ongoing().copy(groupId = g), 3.0, 6.0)
+        val id = repo.createTracker(ongoing(), 3.0, 6.0)
         repo.changeBand(id, today.minusDays(2), 5.0, 8.0) // latest band at "today"
         repo.addLog(id, today, 4.0, today)
         repo.archiveTracker(repo.getTracker(id)!!)
@@ -239,7 +200,6 @@ class RepositoryTest {
         assertEquals(TrackerStatus.ACTIVE, fresh.status)
         assertEquals(today, fresh.startDate)
         assertEquals("Run", fresh.name)
-        assertEquals(g, fresh.groupId)
         assertTrue(repo.observeLogs(newId).first().isEmpty())
         val bands = repo.observeBands(newId).first()
         assertEquals(1, bands.size)
@@ -410,8 +370,7 @@ class RepositoryTest {
 
     private suspend fun fillSampleData(): Long {
         repo.saveFirstSettings(today.minusDays(40), 30)
-        val group = repo.addGroup("Study, \"deep\"", 5)
-        val a = repo.createTracker(goal().copy(name = "Mom é 日本", groupId = group), null, null)
+        val a = repo.createTracker(goal().copy(name = "Mom é 日本"), null, null)
         val b = repo.createTracker(ongoing(), 3.0, 6.0)
         repo.changeBand(b, today.minusDays(2), 5.5, 8.0)
         repo.addLog(a, today, 12.5, today)
@@ -434,7 +393,6 @@ class RepositoryTest {
 
         val after = repo.readBackup()
         assertEquals(before.settings, after.settings)
-        assertEquals(before.groups.sortedBy { it.id }, after.groups.sortedBy { it.id })
         assertEquals(before.trackers.sortedBy { it.id }, after.trackers.sortedBy { it.id })
         assertEquals(before.bands.sortedBy { it.id }, after.bands.sortedBy { it.id })
         assertEquals(before.logs.sortedBy { it.id }, after.logs.sortedBy { it.id })
@@ -450,7 +408,6 @@ class RepositoryTest {
         // Something else is in the app when the import happens.
         val other = repo.createTracker(goal().copy(name = "Will be gone"), null, null)
         repo.addLog(other, today, 9.0, today)
-        repo.addGroup("Gone group", 1)
 
         repo.replaceAll(backup)
 
@@ -458,12 +415,11 @@ class RepositoryTest {
         assertTrue("Will be gone" !in names)
         assertEquals(backup.trackers.size, names.size)
         assertEquals(backup.logs.size, repo.readBackup().logs.size)
-        assertEquals(backup.groups.map { it.name }, repo.readBackup().groups.map { it.name })
     }
 
     @Test fun backup_importWithoutSettings_clearsSettings() = runBlocking {
         repo.saveFirstSettings(today, 77)
-        repo.replaceAll(BackupData(null, emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
+        repo.replaceAll(BackupData(null, emptyList(), emptyList(), emptyList(), emptyList()))
         assertNull(repo.observeSettings().first())
     }
 
@@ -474,7 +430,6 @@ class RepositoryTest {
         // A log that points at a tracker that does not exist breaks a foreign key halfway through the import.
         val broken = BackupData(
             settings = null,
-            groups = emptyList(),
             trackers = listOf(goal().copy(id = 1)),
             bands = emptyList(),
             logs = listOf(LogEntry(id = 1, trackerId = 777, date = today, amount = 1.0, createdAt = 0)),
@@ -489,7 +444,6 @@ class RepositoryTest {
         val after = repo.readBackup()
         assertEquals(before.trackers.sortedBy { it.id }, after.trackers.sortedBy { it.id })
         assertEquals(before.logs.sortedBy { it.id }, after.logs.sortedBy { it.id })
-        assertEquals(before.groups.sortedBy { it.id }, after.groups.sortedBy { it.id })
         assertEquals(before.bands.sortedBy { it.id }, after.bands.sortedBy { it.id })
         assertEquals(before.summaries.sortedBy { it.id }, after.summaries.sortedBy { it.id })
         assertEquals(before.settings, after.settings)
@@ -498,7 +452,6 @@ class RepositoryTest {
     @Test fun backup_newIdsAfterImportContinuePastTheImportedOnes() = runBlocking {
         val backup = BackupData(
             settings = null,
-            groups = emptyList(),
             trackers = listOf(goal().copy(id = 40)),
             bands = emptyList(),
             logs = emptyList(),
@@ -512,9 +465,9 @@ class RepositoryTest {
     @Test fun backup_csvFromTheRealDatabase() = runBlocking {
         fillSampleData()
         val data = repo.readBackup()
-        val csv = logsToCsv(data.trackers, data.groups, data.logs)
+        val csv = logsToCsv(data.trackers, data.logs)
         val rows = csv.split("\r\n").filter { it.isNotEmpty() }
         assertEquals(4, rows.size) // header + 3 logs
-        assertTrue(rows[1].startsWith("${today.minusDays(3)},Mom é 日本,\"Study, \"\"deep\"\"\","))
+        assertTrue(rows[1].startsWith("${today.minusDays(3)},Mom é 日本,"))
     }
 }

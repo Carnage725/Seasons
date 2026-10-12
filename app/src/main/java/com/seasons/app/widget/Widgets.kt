@@ -53,7 +53,6 @@ import androidx.glance.unit.ColorProvider
 import com.seasons.app.MainActivity
 import com.seasons.app.SeasonsApp
 import com.seasons.app.ui.AppBackground
-import com.seasons.app.ui.EXTRA_GROUP_ID
 import com.seasons.app.ui.EXTRA_TRACKER_ID
 import com.seasons.app.ui.Grey1
 import com.seasons.app.ui.Grey3
@@ -73,13 +72,6 @@ private fun openTracker(context: Context, id: Long): Action = actionStartActivit
     Intent(context, MainActivity::class.java).apply {
         putExtra(EXTRA_TRACKER_ID, id)
         data = Uri.parse("seasons://tracker/$id") // makes each target a different PendingIntent
-    },
-)
-
-private fun openGroup(context: Context, id: Long): Action = actionStartActivity(
-    Intent(context, MainActivity::class.java).apply {
-        putExtra(EXTRA_GROUP_ID, id)
-        data = Uri.parse("seasons://group/$id")
     },
 )
 
@@ -204,87 +196,7 @@ class TrackerWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TrackerWidget()
 }
 
-// ---------- Group ----------
-
-class GroupWidget : GlanceAppWidget() {
-    override val sizeMode: SizeMode = SizeMode.Exact
-    override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
-
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent {
-            val prefs = currentState<Preferences>()
-            val target = WidgetTarget.decode(prefs[WidgetState.TARGET]) as? WidgetTarget.OfGroup
-            val refresh = prefs[WidgetState.REFRESH] ?: 0L
-            val loaded by produceState<Loaded<GroupWidgetData>>(Loaded.Loading, target, refresh) {
-                value = Loaded.Done(target?.let { withContext(Dispatchers.IO) { WidgetLoader.group(repo(context), it.id) } })
-            }
-            if (loaded is Loaded.Done) GroupContent(context, target, (loaded as Loaded.Done<GroupWidgetData>).value)
-            else Box(GlanceModifier.fillMaxSize().background(c(AppBackground)).cornerRadius(16.dp)) {}
-        }
-    }
-
-    @Composable
-    private fun GroupContent(context: Context, target: WidgetTarget.OfGroup?, data: GroupWidgetData?) {
-        Column(GlanceModifier.fillMaxSize().background(c(AppBackground)).cornerRadius(16.dp).padding(12.dp)) {
-            if (data == null || target == null) {
-                Text(
-                    if (target == null) "Tap to choose a group" else "Group not found",
-                    modifier = GlanceModifier.clickable(openApp(context)),
-                    style = TextStyle(color = c(Grey1), fontSize = 13.sp),
-                )
-                return@Column
-            }
-            Row(
-                GlanceModifier.fillMaxWidth().clickable(openGroup(context, target.id)),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Dot(data.color)
-                Spacer(GlanceModifier.width(6.dp))
-                Text(data.groupName, maxLines = 1, style = TextStyle(color = c(Grey1), fontSize = 13.sp, fontWeight = FontWeight.Medium))
-            }
-            Spacer(GlanceModifier.height(6.dp))
-            if (data.rows.isEmpty()) {
-                Text("No active trackers in this group", style = TextStyle(color = c(Grey1), fontSize = 12.sp))
-            } else {
-                LazyColumn(GlanceModifier.fillMaxSize()) {
-                    items(data.rows, itemId = { it.trackerId }) { row -> GroupRow(context, row) }
-                }
-            }
-        }
-    }
-
-    @Composable
-    private fun GroupRow(context: Context, row: WidgetRow) {
-        Column(GlanceModifier.fillMaxWidth().padding(vertical = 5.dp).clickable(openTracker(context, row.trackerId))) {
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Dot(row.color)
-                Spacer(GlanceModifier.width(6.dp))
-                Text(row.name, maxLines = 1, style = TextStyle(color = c(TextMain), fontSize = 14.sp, fontWeight = FontWeight.Medium))
-                Spacer(GlanceModifier.defaultWeight())
-                Text(
-                    row.status,
-                    style = TextStyle(color = if (row.metToday) c(row.color) else c(Grey1), fontSize = 11.sp),
-                )
-                Spacer(GlanceModifier.width(8.dp))
-                Text(row.streak, style = TextStyle(color = c(Grey1), fontSize = 11.sp))
-            }
-            Text(row.main, maxLines = 1, style = TextStyle(color = c(Grey1), fontSize = 12.sp))
-            Spacer(GlanceModifier.height(3.dp))
-            LinearProgressIndicator(
-                progress = row.progress,
-                modifier = GlanceModifier.fillMaxWidth().height(3.dp),
-                color = c(row.color),
-                backgroundColor = c(Grey3),
-            )
-        }
-    }
-}
-
-class GroupWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = GroupWidget()
-}
-
-/** While the data loads. Done(null) means "nothing to show" (no choice made, or the tracker or group is gone). */
+/** While the data loads. Done(null) means "nothing to show" (no choice made, or the tracker is gone). */
 sealed interface Loaded<out T> {
     data object Loading : Loaded<Nothing>
     data class Done<T>(val value: T?) : Loaded<T>
@@ -297,7 +209,6 @@ object WidgetUpdater {
      */
     suspend fun updateAll(context: Context) {
         refresh(context, TrackerWidget())
-        refresh(context, GroupWidget())
     }
 
     private suspend fun refresh(context: Context, widget: GlanceAppWidget) {

@@ -13,8 +13,6 @@ sealed interface Screen {
     data object Home : Screen
     data class TrackerForm(val trackerId: Long?) : Screen
     data class TrackerDetail(val trackerId: Long) : Screen
-    data object Groups : Screen
-    data class GroupDetail(val groupId: Long) : Screen
     data object Trophies : Screen
     data object Archive : Screen
     data object Settings : Screen
@@ -31,9 +29,9 @@ class NavViewModel : ViewModel() {
     }
 
     /** A widget was tapped: replace the whole stack with Home plus the target screen. */
-    fun openLink(trackerId: Long?, groupId: Long?) {
+    fun openLink(trackerId: Long) {
         stack.clear()
-        stack.addAll(screensForLink(trackerId, groupId))
+        stack.addAll(screensForLink(trackerId))
     }
 
     fun pop() {

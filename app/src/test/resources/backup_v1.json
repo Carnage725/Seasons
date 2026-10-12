@@ -1,0 +1,10 @@
+{"app":"Seasons","version":1,"exportedAt":"2026-10-10T08:00:00Z",
+"settings":{"seasonStartDate":"2026-09-01","seasonLength":77,"lastSeasonSummarySeen":0},
+"groups":[{"id":1,"name":"Study","color":-16711936,"sortOrder":0},{"id":2,"name":"Fitness","color":7,"sortOrder":1}],
+"trackers":[
+{"id":1,"name":"The Mom Test","unit":"pages","type":"GOAL","color":-12345,"groupId":1,"target":200,"deadline":"2026-11-01","bandPeriod":"DAILY","startDate":"2026-09-20","status":"ACTIVE","completedDate":null,"sortOrder":0},
+{"id":2,"name":"Run","unit":"laps","type":"ONGOING","color":99,"groupId":2,"target":null,"deadline":null,"bandPeriod":"WEEKLY","startDate":"2026-09-01","status":"ACTIVE","completedDate":null,"sortOrder":1},
+{"id":3,"name":"Reading","unit":"pages","type":"GOAL","color":5,"groupId":null,"target":50,"deadline":null,"bandPeriod":"NONE","startDate":"2026-09-05","status":"ARCHIVED","completedDate":null,"sortOrder":2}],
+"bands":[{"id":1,"trackerId":1,"effectiveFrom":"2026-09-20","lower":3,"upper":6},{"id":2,"trackerId":2,"effectiveFrom":"2026-09-01","lower":4,"upper":6}],
+"logs":[{"id":1,"trackerId":1,"date":"2026-10-01","amount":12,"createdAt":1759300000000},{"id":2,"trackerId":1,"date":"2026-10-02","amount":4.5,"createdAt":1759400000000},{"id":3,"trackerId":2,"date":"2026-10-02","amount":1,"createdAt":1759400001000}],
+"summaries":[]}

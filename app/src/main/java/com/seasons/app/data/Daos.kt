@@ -95,34 +95,6 @@ interface LogDao {
 }
 
 @Dao
-interface GroupDao {
-    @Query("SELECT * FROM groups ORDER BY sortOrder, id")
-    fun observeAll(): Flow<List<TrackerGroup>>
-
-    @Query("SELECT * FROM groups ORDER BY sortOrder, id")
-    suspend fun getAll(): List<TrackerGroup>
-
-    @Insert
-    suspend fun insertAll(groups: List<TrackerGroup>)
-
-    @Query("DELETE FROM groups")
-    suspend fun deleteAll()
-
-    @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM groups")
-    suspend fun maxSortOrder(): Int
-
-    @Insert
-    suspend fun insert(group: TrackerGroup): Long
-
-    @Update
-    suspend fun update(group: TrackerGroup)
-
-    // Trackers in the group stay; their groupId becomes null (ON DELETE SET NULL).
-    @Delete
-    suspend fun delete(group: TrackerGroup)
-}
-
-@Dao
 interface SettingsDao {
     @Query("SELECT * FROM settings WHERE id = 1")
     fun observe(): Flow<Settings?>

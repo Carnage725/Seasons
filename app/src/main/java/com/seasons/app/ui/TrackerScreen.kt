@@ -174,7 +174,7 @@ fun TrackerScreen(
                     TextButton(onClick = onBack) { Text("‹ Back") }
                     Spacer(Modifier.weight(1f))
                     Box {
-                        TextButton(onClick = { menuOpen = true }) { Text("Menu") }
+                        MoreButton(onClick = { menuOpen = true })
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
                                 text = { Text("Edit tracker") },

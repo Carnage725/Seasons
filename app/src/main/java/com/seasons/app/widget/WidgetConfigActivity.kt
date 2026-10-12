@@ -42,7 +42,7 @@ import com.seasons.app.ui.Grey1
 import com.seasons.app.ui.SeasonsTheme
 import kotlinx.coroutines.launch
 
-/** Opens when a widget is placed (and when it is reconfigured). Picks the tracker or group the widget shows. */
+/** Opens when a widget is placed (and when it is reconfigured). Picks the tracker the widget shows. */
 class WidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,8 +57,6 @@ class WidgetConfigActivity : ComponentActivity() {
         // Backing out must not add a widget that has nothing to show.
         setResult(Activity.RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
 
-        val provider = AppWidgetManager.getInstance(this).getAppWidgetInfo(appWidgetId)?.provider?.className.orEmpty()
-        val forGroup = provider.endsWith("GroupWidgetReceiver")
         val repo = (application as SeasonsApp).repository
 
         fun choose(target: WidgetTarget) {
@@ -67,8 +65,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 updateAppWidgetState(this@WidgetConfigActivity, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                     prefs.toMutablePreferences().apply { this[WidgetState.TARGET] = target.encode() }
                 }
-                if (forGroup) GroupWidget().update(this@WidgetConfigActivity, glanceId)
-                else TrackerWidget().update(this@WidgetConfigActivity, glanceId)
+                TrackerWidget().update(this@WidgetConfigActivity, glanceId)
                 setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
                 finish()
             }
@@ -83,12 +80,9 @@ class WidgetConfigActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         item {
-                            Text(
-                                if (forGroup) "Choose a group" else "Choose a tracker",
-                                style = MaterialTheme.typography.headlineMedium,
-                            )
+                            Text("Choose a tracker", style = MaterialTheme.typography.headlineMedium)
                         }
-                        if (forGroup) groupChoices(repo, ::choose) else trackerChoices(repo, ::choose)
+                        trackerChoices(repo, ::choose)
                     }
                 }
             }
@@ -107,21 +101,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.trackerChoices(
             if (trackers != null && active.isEmpty()) Text("No trackers yet. Create one in the app first.", color = Grey1)
             active.forEach { t ->
                 Choice(t.name, t.color) { choose(WidgetTarget.OfTracker(t.id)) }
-            }
-        }
-    }
-}
-
-private fun androidx.compose.foundation.lazy.LazyListScope.groupChoices(
-    repo: com.seasons.app.data.Repository,
-    choose: (WidgetTarget) -> Unit,
-) {
-    item {
-        val groups by remember { repo.observeGroups() }.collectAsStateWithLifecycle(initialValue = null)
-        androidx.compose.foundation.layout.Column {
-            if (groups != null && groups.orEmpty().isEmpty()) Text("No groups yet. Create one in the app first.", color = Grey1)
-            groups.orEmpty().forEach { g ->
-                Choice(g.name, g.color) { choose(WidgetTarget.OfGroup(g.id)) }
             }
         }
     }

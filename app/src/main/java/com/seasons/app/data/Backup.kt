@@ -10,11 +10,10 @@ import java.time.LocalDate
 // Backup file (JSON) and log export (CSV). Pure apart from org.json, so every rule is unit-tested.
 
 const val BACKUP_APP_NAME = "Seasons"
-const val BACKUP_VERSION = 1
+const val BACKUP_VERSION = 2
 
 data class BackupData(
     val settings: Settings?,
-    val groups: List<TrackerGroup>,
     val trackers: List<Tracker>,
     val bands: List<BandHistory>,
     val logs: List<LogEntry>,
@@ -42,11 +41,6 @@ fun BackupData.toJson(exportedAt: Instant): String {
                 .put("lastSeasonSummarySeen", it.lastSeasonSummarySeen)
         } ?: JSONObject.NULL,
     )
-    root.put("groups", JSONArray().also { arr ->
-        groups.forEach {
-            arr.put(JSONObject().put("id", it.id).put("name", it.name).put("color", it.color).put("sortOrder", it.sortOrder))
-        }
-    })
     root.put("trackers", JSONArray().also { arr ->
         trackers.forEach {
             arr.put(
@@ -56,7 +50,6 @@ fun BackupData.toJson(exportedAt: Instant): String {
                     .put("unit", it.unit)
                     .put("type", it.type.name)
                     .put("color", it.color)
-                    .putNullable("groupId", it.groupId)
                     .putNullable("target", it.target)
                     .putNullable("deadline", it.deadline?.toString())
                     .put("bandPeriod", it.bandPeriod.name)
@@ -173,11 +166,7 @@ private fun parseRoot(root: JSONObject): BackupData {
         Settings(seasonStartDate = o.dateValue("seasonStartDate"), seasonLength = length, lastSeasonSummarySeen = seen)
     }
 
-    val groups = root.getJSONArray("groups").objects {
-        TrackerGroup(it.getLong("id"), it.getString("name"), it.getInt("color"), it.getInt("sortOrder"))
-    }
-    requireUniqueIds("group", groups.map { it.id })
-    if (groups.any { it.name.isBlank() }) fail("A group has no name.")
+    // Format 1 files also hold "groups" and a tracker "groupId". The Groups feature is gone, so they are ignored.
 
     val trackers = root.getJSONArray("trackers").objects {
         Tracker(
@@ -186,7 +175,6 @@ private fun parseRoot(root: JSONObject): BackupData {
             unit = it.getString("unit"),
             type = it.enumValue<TrackerType>("type", "tracker type"),
             color = it.getInt("color"),
-            groupId = it.nullableLong("groupId"),
             target = it.nullableDouble("target"),
             deadline = it.nullableDate("deadline"),
             bandPeriod = it.enumValue<BandPeriod>("bandPeriod", "band period"),
@@ -197,10 +185,8 @@ private fun parseRoot(root: JSONObject): BackupData {
         )
     }
     requireUniqueIds("tracker", trackers.map { it.id })
-    val groupIds = groups.map { it.id }.toSet()
     trackers.forEach { t ->
         if (t.name.isBlank() || t.unit.isBlank()) fail("A tracker has no name or unit.")
-        if (t.groupId != null && t.groupId !in groupIds) fail("Tracker \"${t.name}\" points to a group that is not in the file.")
         if (t.target != null && (!t.target.isFinite() || t.target <= 0.0)) fail("Tracker \"${t.name}\" has an invalid target.")
         if (t.type == TrackerType.GOAL && t.target == null) fail("Goal \"${t.name}\" has no target.")
     }
@@ -262,7 +248,7 @@ private fun parseRoot(root: JSONObject): BackupData {
     }
     if (summaries.map { it.startDate }.toSet().size != summaries.size) fail("Two season summaries start on the same date.")
 
-    return BackupData(settings, groups, trackers, bands, logs, summaries)
+    return BackupData(settings, trackers, bands, logs, summaries)
 }
 
 // ---------- CSV ----------
@@ -279,15 +265,13 @@ internal fun csvField(raw: String): String {
 private fun plainNumber(value: Double): String = BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
 
 /** One row per log entry, oldest first. Lines end with CRLF, as RFC 4180 says. */
-fun logsToCsv(trackers: List<Tracker>, groups: List<TrackerGroup>, logs: List<LogEntry>): String {
+fun logsToCsv(trackers: List<Tracker>, logs: List<LogEntry>): String {
     val trackerById = trackers.associateBy { it.id }
-    val groupNames = groups.associate { it.id to it.name }
-    val sb = StringBuilder("date,tracker,group,amount,unit,logged_at\r\n")
+    val sb = StringBuilder("date,tracker,amount,unit,logged_at\r\n")
     logs.sortedWith(compareBy({ it.date }, { it.createdAt }, { it.id })).forEach { l ->
         val t = trackerById[l.trackerId] ?: return@forEach
         sb.append(l.date.toString()).append(',')
             .append(csvField(t.name)).append(',')
-            .append(csvField(t.groupId?.let { groupNames[it] }.orEmpty())).append(',')
             .append(plainNumber(l.amount)).append(',')
             .append(csvField(t.unit)).append(',')
             .append(Instant.ofEpochMilli(l.createdAt).toString())

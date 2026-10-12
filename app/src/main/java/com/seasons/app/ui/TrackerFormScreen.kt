@@ -91,7 +91,6 @@ private fun TrackerFormContent(
     var upper by rememberSaveable { mutableStateOf("") }
     var startDate by rememberSaveable { mutableStateOf(existing?.startDate ?: today) }
     var color by rememberSaveable { mutableStateOf(existing?.color ?: ColorPalette[0]) }
-    var groupId by rememberSaveable { mutableStateOf(existing?.groupId) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var pickingDeadline by rememberSaveable { mutableStateOf(false) }
     var pickingStart by rememberSaveable { mutableStateOf(false) }
@@ -225,17 +224,6 @@ private fun TrackerFormContent(
                 }
             }
 
-            val groups by vm.groups.collectAsStateWithLifecycle()
-            if (groups.isNotEmpty()) {
-                Label("Group")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = groupId == null, onClick = { groupId = null }, label = { Text("None") })
-                    groups.forEach { g ->
-                        FilterChip(selected = groupId == g.id, onClick = { groupId = g.id }, label = { Text(g.name) })
-                    }
-                }
-            }
-
             Label("Color")
             ColorPicker(color) { color = it }
 
@@ -252,7 +240,6 @@ private fun TrackerFormContent(
                                     name = name.trim(),
                                     unit = unit.trim(),
                                     color = color,
-                                    groupId = groupId,
                                     target = if (type == TrackerType.GOAL) parseAmount(target) else null,
                                     deadline = if (type == TrackerType.GOAL) deadline else null,
                                 ),
@@ -266,7 +253,6 @@ private fun TrackerFormContent(
                                     unit = unit.trim(),
                                     type = type,
                                     color = color,
-                                    groupId = groupId,
                                     target = if (type == TrackerType.GOAL) parseAmount(target) else null,
                                     deadline = if (type == TrackerType.GOAL) deadline else null,
                                     bandPeriod = bandPeriod,

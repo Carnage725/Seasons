@@ -11,33 +11,13 @@ enum class BandPeriod { DAILY, WEEKLY, NONE }
 /** REPLACED: archived, then restarted with "Start fresh". Kept as history but not shown in Archive. */
 enum class TrackerStatus { ACTIVE, ARCHIVED, COMPLETED, REPLACED }
 
-@Entity(tableName = "groups")
-data class TrackerGroup(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val name: String,
-    val color: Int,
-    val sortOrder: Int = 0,
-)
-
-@Entity(
-    tableName = "trackers",
-    foreignKeys = [
-        ForeignKey(
-            entity = TrackerGroup::class,
-            parentColumns = ["id"],
-            childColumns = ["groupId"],
-            onDelete = ForeignKey.SET_NULL,
-        ),
-    ],
-    indices = [Index("groupId")],
-)
+@Entity(tableName = "trackers")
 data class Tracker(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val unit: String,
     val type: TrackerType,
     val color: Int,
-    val groupId: Long? = null,
     val target: Double? = null,
     val deadline: LocalDate? = null,
     val bandPeriod: BandPeriod = BandPeriod.NONE,

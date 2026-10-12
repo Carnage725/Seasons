@@ -4,7 +4,6 @@ import com.seasons.app.data.BandHistory
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Tracker
-import com.seasons.app.data.TrackerGroup
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.data.TrackerType
 import com.seasons.app.domain.Band
@@ -15,7 +14,6 @@ import com.seasons.app.ui.screensForLink
 import com.seasons.app.ui.statusText
 import com.seasons.app.ui.streakText
 import com.seasons.app.widget.WidgetTarget
-import com.seasons.app.widget.buildGroupData
 import com.seasons.app.widget.buildSingleData
 import com.seasons.app.widget.millisUntilNextMidnight
 import org.junit.Assert.assertEquals
@@ -79,7 +77,6 @@ class WidgetTest {
 
     @Test fun target_roundTrips() {
         assertEquals(WidgetTarget.OfTracker(12), WidgetTarget.decode(WidgetTarget.OfTracker(12).encode()))
-        assertEquals(WidgetTarget.OfGroup(3), WidgetTarget.decode(WidgetTarget.OfGroup(3).encode()))
     }
 
     @Test fun target_badInputIsNull() {
@@ -88,22 +85,14 @@ class WidgetTest {
         assertNull(WidgetTarget.decode("tracker"))
         assertNull(WidgetTarget.decode("tracker:abc"))
         assertNull(WidgetTarget.decode("thing:5"))
+        assertNull(WidgetTarget.decode("group:3")) // a widget placed before groups were removed
         assertNull(WidgetTarget.decode("tracker:5:6"))
     }
 
     // ---------- deep link ----------
 
     @Test fun link_trackerOpensHomeThenTracker() {
-        assertEquals(listOf(Screen.Home, Screen.TrackerDetail(7)), screensForLink(7, null))
-    }
-
-    @Test fun link_groupOpensHomeThenGroup() {
-        assertEquals(listOf(Screen.Home, Screen.GroupDetail(4)), screensForLink(null, 4))
-    }
-
-    @Test fun link_trackerWinsIfBothGiven_andNothingGivesHome() {
-        assertEquals(listOf(Screen.Home, Screen.TrackerDetail(7)), screensForLink(7, 4))
-        assertEquals(listOf(Screen.Home), screensForLink(null, null))
+        assertEquals(listOf(Screen.Home, Screen.TrackerDetail(7)), screensForLink(7))
     }
 
     // ---------- widget data ----------
@@ -113,11 +102,10 @@ class WidgetTest {
         name: String = "T$id",
         type: TrackerType = TrackerType.GOAL,
         band: BandPeriod = BandPeriod.NONE,
-        groupId: Long? = null,
         status: TrackerStatus = TrackerStatus.ACTIVE,
         deadline: LocalDate? = null,
     ) = Tracker(
-        id = id, name = name, unit = "pages", type = type, color = 99, groupId = groupId,
+        id = id, name = name, unit = "pages", type = type, color = 99,
         target = if (type == TrackerType.GOAL) 200.0 else null, deadline = deadline,
         bandPeriod = band, startDate = start, status = status,
     )
@@ -174,30 +162,6 @@ class WidgetTest {
         val t = tracker(3, type = TrackerType.ONGOING, band = BandPeriod.WEEKLY)
         val d = buildSingleData(t, listOf(log(3, 0, 1.0)), bands, today)
         assertTrue(d.streak.endsWith("wk"))
-    }
-
-    @Test fun groupData_onlyThisGroupsActiveTrackers_inOrder() {
-        val group = TrackerGroup(id = 5, name = "Study", color = 7)
-        val trackers = listOf(
-            tracker(1, groupId = 5),
-            tracker(2, groupId = 6),
-            tracker(3, groupId = 5, status = TrackerStatus.ARCHIVED),
-            tracker(4, groupId = null),
-            tracker(5, groupId = 5, status = TrackerStatus.COMPLETED),
-            tracker(6, groupId = 5),
-        )
-        val logs = listOf(log(1, 0, 10.0), log(6, 0, 20.0))
-        val d = buildGroupData(group, trackers, logs, emptyList<BandHistory>(), today)
-        assertEquals("Study", d.groupName)
-        assertEquals(7, d.color)
-        assertEquals(listOf(1L, 6L), d.rows.map { it.trackerId })
-        assertEquals("10 / 200 pages", d.rows[0].main)
-        assertEquals("20 / 200 pages", d.rows[1].main)
-    }
-
-    @Test fun groupData_emptyGroupHasNoRows() {
-        val d = buildGroupData(TrackerGroup(id = 1, name = "Empty", color = 0), emptyList(), emptyList(), emptyList(), today)
-        assertTrue(d.rows.isEmpty())
     }
 
     @Test fun rowTexts_areTheSameOnHomeAndInWidgets() {

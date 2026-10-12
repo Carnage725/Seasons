@@ -71,7 +71,7 @@ fun buildHomeRow(tracker: Tracker, logs: List<LogEntry>, bands: List<Band>, toda
     return HomeRow(tracker, done, todayTotal, band, met, streak, progress)
 }
 
-/** Active trackers as Home rows. Shared by Home and the group screens. */
+/** Active trackers as Home rows. */
 fun Repository.observeHomeRows(): Flow<List<HomeRow>> = combine(
     observeTrackers(),
     observeAllBands(),
@@ -112,9 +112,6 @@ class HomeViewModel(repo: Repository) : ViewModel() {
     }
 
     /** Null while loading. */
-    val sections: StateFlow<List<HomeSection>?> = combine(
-        repo.observeHomeRows(),
-        repo.observeGroups(),
-    ) { rows, groups -> buildSections(groups, rows) }
+    val rows: StateFlow<List<HomeRow>?> = repo.observeHomeRows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 }

@@ -10,7 +10,6 @@ import com.seasons.app.data.SeasonSummary
 import com.seasons.app.data.SeasonTrackerStat
 import com.seasons.app.data.Settings
 import com.seasons.app.data.Tracker
-import com.seasons.app.data.TrackerGroup
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.data.TrackerType
 import com.seasons.app.data.csvField
@@ -38,25 +37,24 @@ class BackupTest {
 
     private fun sample() = BackupData(
         settings = Settings(seasonStartDate = d.minusDays(30), seasonLength = 30, lastSeasonSummarySeen = 2),
-        groups = listOf(TrackerGroup(1, "Study, \"deep\" work", -16711936, 0), TrackerGroup(2, "Fit", 7, 1)),
         trackers = listOf(
             Tracker(
-                id = 1, name = "The Mom Test é 日本", unit = "pages", type = TrackerType.GOAL, color = -12345, groupId = 1,
+                id = 1, name = "The Mom Test é 日本", unit = "pages", type = TrackerType.GOAL, color = -12345,
                 target = 200.5, deadline = d.plusDays(10), bandPeriod = BandPeriod.DAILY, startDate = d.minusDays(20),
                 status = TrackerStatus.ACTIVE, completedDate = null, sortOrder = 0,
             ),
             Tracker(
-                id = 2, name = "Run", unit = "laps", type = TrackerType.ONGOING, color = 99, groupId = null, target = null,
+                id = 2, name = "Run", unit = "laps", type = TrackerType.ONGOING, color = 99, target = null,
                 deadline = null, bandPeriod = BandPeriod.WEEKLY, startDate = d.minusDays(60), status = TrackerStatus.ARCHIVED,
                 completedDate = null, sortOrder = 3,
             ),
             Tracker(
-                id = 3, name = "Done goal", unit = "x", type = TrackerType.GOAL, color = 1, groupId = 2, target = 10.0,
+                id = 3, name = "Done goal", unit = "x", type = TrackerType.GOAL, color = 1, target = 10.0,
                 deadline = null, bandPeriod = BandPeriod.NONE, startDate = d.minusDays(5), status = TrackerStatus.COMPLETED,
                 completedDate = d.minusDays(1), sortOrder = 4,
             ),
             Tracker(
-                id = 4, name = "Old", unit = "x", type = TrackerType.ONGOING, color = 1, groupId = null, target = null,
+                id = 4, name = "Old", unit = "x", type = TrackerType.ONGOING, color = 1, target = null,
                 deadline = null, bandPeriod = BandPeriod.DAILY, startDate = d.minusDays(5), status = TrackerStatus.REPLACED,
                 completedDate = null, sortOrder = 5,
             ),
@@ -99,7 +97,7 @@ class BackupTest {
     }
 
     @Test fun roundTrip_noSettings_emptyLists() {
-        val empty = BackupData(null, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        val empty = BackupData(null, emptyList(), emptyList(), emptyList(), emptyList())
         assertEquals(empty, parseBackup(empty.toJson(exportedAt)))
     }
 
@@ -113,7 +111,7 @@ class BackupTest {
     @Test fun export_hasAppNameVersionAndTime() {
         val root = JSONObject(sample().toJson(exportedAt))
         assertEquals("Seasons", root.getString("app"))
-        assertEquals(1, root.getInt("version"))
+        assertEquals(2, root.getInt("version"))
         assertEquals("2026-10-08T09:00:00Z", root.getString("exportedAt"))
     }
 
@@ -129,7 +127,7 @@ class BackupTest {
 
     @Test fun rejects_wrongAppName() = assertRejected("not a Seasons backup", json { it.put("app", "Other") })
 
-    @Test fun rejects_newerVersion() = assertRejected("newer version", json { it.put("version", 2) })
+    @Test fun rejects_newerVersion() = assertRejected("newer version", json { it.put("version", 3) })
 
     @Test fun rejects_missingVersion() = assertRejected("version", json { it.remove("version") })
 
@@ -156,14 +154,9 @@ class BackupTest {
         it.getJSONArray("bands").getJSONObject(0).put("trackerId", 99)
     })
 
-    @Test fun rejects_trackerPointingAtMissingGroup() = assertRejected("group that is not in the file", json {
-        it.getJSONArray("trackers").getJSONObject(0).put("groupId", 99)
-    })
-
     @Test fun rejects_duplicateIds() {
         assertRejected("share the same id", json { it.getJSONArray("trackers").getJSONObject(1).put("id", 1) })
         assertRejected("share the same id", json { it.getJSONArray("logs").getJSONObject(1).put("id", 1) })
-        assertRejected("share the same id", json { it.getJSONArray("groups").getJSONObject(1).put("id", 1) })
     }
 
     @Test fun rejects_zeroOrNegativeId() = assertRejected("invalid id", json {
@@ -199,12 +192,11 @@ class BackupTest {
 
     @Test fun rejects_blankNames() {
         assertRejected("no name or unit", json { it.getJSONArray("trackers").getJSONObject(0).put("name", "  ") })
-        assertRejected("no name", json { it.getJSONArray("groups").getJSONObject(0).put("name", "") })
     }
 
     @Test fun acceptsAnEmptyButValidBackup() {
-        val text = """{"app":"Seasons","version":1,"settings":null,"groups":[],"trackers":[],"bands":[],"logs":[],"summaries":[]}"""
-        assertEquals(BackupData(null, emptyList(), emptyList(), emptyList(), emptyList(), emptyList()), parseBackup(text))
+        val text = """{"app":"Seasons","version":2,"settings":null,"trackers":[],"bands":[],"logs":[],"summaries":[]}"""
+        assertEquals(BackupData(null, emptyList(), emptyList(), emptyList(), emptyList()), parseBackup(text))
     }
 
     @Test fun ignoresExtraUnknownFields() {
@@ -212,29 +204,51 @@ class BackupTest {
         assertEquals(sample(), parsed)
     }
 
+    // ---------- Format 1 files (made before groups were removed) must keep importing ----------
+
+    @Test fun formatOneFile_stillImports_andGroupsAreIgnored() {
+        val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
+        val data = parseBackup(text)
+        assertEquals(listOf("The Mom Test", "Run", "Reading"), data.trackers.map { it.name })
+        assertEquals(2, data.bands.size)
+        assertEquals(listOf(12.0, 4.5, 1.0), data.logs.map { it.amount })
+        assertEquals(77, data.settings!!.seasonLength)
+    }
+
+    @Test fun formatOneFile_withBadGroupData_isNotRejectedForIt() {
+        // A group reference that points nowhere used to be an error. Groups are gone, so it is ignored.
+        val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
+            .replace("\"groupId\":1", "\"groupId\":99")
+        assertEquals(3, parseBackup(text).trackers.size)
+    }
+
+    @Test fun export_writesFormatTwoWithoutGroups() {
+        val root = JSONObject(sample().toJson(Instant.parse("2026-10-10T08:00:00Z")))
+        assertEquals(2, root.getInt("version"))
+        assertTrue(!root.has("groups"))
+        assertTrue(!root.getJSONArray("trackers").getJSONObject(0).has("groupId"))
+    }
+
     // ---------- CSV ----------
 
     @Test fun csv_headerAndRowsOldestFirst() {
         val data = sample()
-        val lines = logsToCsv(data.trackers, data.groups, data.logs).split("\r\n").filter { it.isNotEmpty() }
-        assertEquals("date,tracker,group,amount,unit,logged_at", lines[0])
+        val lines = logsToCsv(data.trackers, data.logs).split("\r\n").filter { it.isNotEmpty() }
+        assertEquals("date,tracker,amount,unit,logged_at", lines[0])
         assertEquals(3, lines.size - 1)
         assertTrue(lines[1].startsWith("2026-10-04,")) // oldest
         assertTrue(lines[3].startsWith("2026-10-07,")) // newest
     }
 
-    @Test fun csv_groupNameAndNoGroup() {
+    @Test fun csv_rowsHaveNoGroupColumn() {
         val data = sample()
-        val lines = logsToCsv(data.trackers, data.groups, data.logs).split("\r\n")
-        assertEquals("2026-10-04,Run,,1234567.89,laps,1970-01-01T00:00:00Z", lines[1])
-        assertEquals(
-            "2026-10-07,The Mom Test é 日本,\"Study, \"\"deep\"\" work\",0.3,pages,2023-11-14T22:13:20.123Z".replace("0.3,", "0.30000000000000004,"),
-            lines[3],
-        )
+        val lines = logsToCsv(data.trackers, data.logs).split("\r\n")
+        assertEquals("2026-10-04,Run,1234567.89,laps,1970-01-01T00:00:00Z", lines[1])
+        assertEquals("2026-10-07,The Mom Test é 日本,0.30000000000000004,pages,2023-11-14T22:13:20.123Z", lines[3])
     }
 
     @Test fun csv_endsEveryLineWithCrlf_andHasNoBareNewlines() {
-        val text = logsToCsv(sample().trackers, sample().groups, sample().logs)
+        val text = logsToCsv(sample().trackers, sample().logs)
         assertTrue(text.endsWith("\r\n"))
         assertEquals(0, text.replace("\r\n", "").count { it == '\n' })
     }
@@ -262,12 +276,12 @@ class BackupTest {
         val logs = listOf(
             LogEntry(1, 1, d, 5.0, 0), LogEntry(2, 1, d, 0.5, 0), LogEntry(3, 1, d, 1e-7, 0), LogEntry(4, 1, d, 1e10, 0),
         )
-        val rows = logsToCsv(t, sample().groups, logs).split("\r\n").drop(1).filter { it.isNotEmpty() }
+        val rows = logsToCsv(t, logs).split("\r\n").drop(1).filter { it.isNotEmpty() }
         val amounts = rows.map { it.split(",").let { f -> f[f.size - 3] } }
         assertEquals(listOf("5", "0.5", "0.0000001", "10000000000"), amounts)
     }
 
     @Test fun csv_noLogs_isJustTheHeader() {
-        assertEquals("date,tracker,group,amount,unit,logged_at\r\n", logsToCsv(emptyList(), emptyList(), emptyList()))
+        assertEquals("date,tracker,amount,unit,logged_at\r\n", logsToCsv(emptyList(), emptyList()))
     }
 }

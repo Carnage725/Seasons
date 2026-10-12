@@ -51,6 +51,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // The migration test reads the exported schema files.
+    sourceSets {
+        getByName("androidTest").assets.directories.add("$projectDir/schemas")
+    }
 }
 
 ksp {
@@ -78,6 +83,10 @@ dependencies {
     // Android's stub jar cannot run org.json in plain JVM tests. The app itself uses the built-in one.
     testImplementation("org.json:json:20260814")
 
+    androidTestImplementation("androidx.room:room-testing:$roomVersion")
+    // room-testing needs kotlinx-serialization 1.8+. The app's own dependencies pin 1.7.3, and the test run must match
+    // the app, so debug builds get the newer one. Release builds are not touched.
+    debugImplementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("junit:junit:4.13.2")

@@ -6,7 +6,6 @@ import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Tracker
 import com.seasons.app.data.seasonBase
-import com.seasons.app.data.TrackerGroup
 import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChartModel
 import com.seasons.app.ui.charts.OnTrackModel
@@ -119,9 +118,6 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
 }
 
 class FormViewModel(private val repo: Repository) : ViewModel() {
-    val groups: StateFlow<List<TrackerGroup>> = repo.observeGroups()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
     suspend fun load(id: Long): Tracker? = repo.getTracker(id)
 
     fun create(tracker: Tracker, lower: Double?, upper: Double?, onDone: () -> Unit) {

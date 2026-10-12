@@ -9,7 +9,6 @@ class Repository(private val db: AppDatabase) {
     private val trackers = db.trackerDao()
     private val bands = db.bandDao()
     private val logs = db.logDao()
-    private val groups = db.groupDao()
     private val settings = db.settingsDao()
     private val summaries = db.seasonSummaryDao()
 
@@ -22,7 +21,6 @@ class Repository(private val db: AppDatabase) {
     fun observeAllBands() = bands.observeAll()
     fun observeLogs(trackerId: Long) = logs.observeFor(trackerId)
     fun observeAllLogs() = logs.observeAll()
-    fun observeGroups() = groups.observeAll()
     fun observeSettings() = settings.observe()
     fun observeSeasonSummaries() = summaries.observeAll()
 
@@ -87,7 +85,6 @@ class Repository(private val db: AppDatabase) {
     suspend fun readBackup(): BackupData = db.withTransaction {
         BackupData(
             settings = settings.get(),
-            groups = groups.getAll(),
             trackers = trackers.getAll(),
             bands = bands.getAll(),
             logs = logs.getAll(),
@@ -104,11 +101,9 @@ class Repository(private val db: AppDatabase) {
         logs.deleteAll()
         bands.deleteAll()
         trackers.deleteAll()
-        groups.deleteAll()
         summaries.deleteAll()
         settings.deleteAll()
 
-        groups.insertAll(data.groups)
         trackers.insertAll(data.trackers)
         bands.insertAll(data.bands)
         logs.insertAll(data.logs)
@@ -190,22 +185,6 @@ class Repository(private val db: AppDatabase) {
     }
 
     suspend fun saveSeasonSummary(summary: SeasonSummary) = summaries.insert(summary)
-
-    suspend fun addGroup(name: String, color: Int): Long =
-        groups.insert(TrackerGroup(name = name, color = color, sortOrder = groups.maxSortOrder() + 1))
-
-    suspend fun updateGroup(group: TrackerGroup) = groups.update(group)
-
-    /** Deletes only the group. Its trackers stay and become ungrouped. */
-    suspend fun deleteGroup(group: TrackerGroup) = groups.delete(group)
-
-    /** Moves a group one place up or down. Rewrites sortOrder as 0, 1, 2... */
-    suspend fun moveGroup(id: Long, up: Boolean) {
-        val before = groups.getAll()
-        swapGroupOrder(before, id, up).forEach { g ->
-            if (before.first { it.id == g.id }.sortOrder != g.sortOrder) groups.update(g)
-        }
-    }
 
     suspend fun archiveTracker(tracker: Tracker) = trackers.update(tracker.copy(status = TrackerStatus.ARCHIVED))
 

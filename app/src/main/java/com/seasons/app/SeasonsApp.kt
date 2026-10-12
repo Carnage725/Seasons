@@ -29,8 +29,7 @@ class SeasonsApp : Application() {
                 repository.observeTrackers(),
                 repository.observeAllLogs(),
                 repository.observeAllBands(),
-                repository.observeGroups(),
-            ) { _, _, _, _ -> }
+            ) { _, _, _ -> }
                 .debounce(400)
                 .collect { WidgetUpdater.updateAll(applicationContext) }
         }

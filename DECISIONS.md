@@ -126,3 +126,13 @@
 - **Code shrinking (R8) is off.** Room, Glance and WorkManager use generated and reflective code, and a shrunk build that crashes on a widget tap is worse than a few extra MB. APK is about 10 MB.
 - **Permissions in the APK:** wake lock, network state, boot completed and foreground service (all added by WorkManager). No internet permission.
 - **A release build cannot be installed over the debug build** (different signing key). The debug app has to be uninstalled first, which deletes its data. Export a backup first (Settings -> Backup).
+
+## MVP 2, Phase 1 (remove groups, three-dot menu)
+- **Source of truth is now `mvps/mvp2.md`.** The kanban board takes priority over old MVP specs. `mvps/mvp1.md` is history.
+- **Groups removed completely:** the Groups screens, group chips on the tracker form, Home headers, the "Seasons group" widget, `TrackerGroup`, `GroupDao`, `Tracker.groupId`, and the `group` column in the CSV.
+- **Database version 2** uses Room's `@AutoMigration` with `@DeleteTable("groups")` and `@DeleteColumn("trackers", "groupId")`. Room recreates the trackers table itself. No destructive fallback. Tested on the phone (`MigrationTest`): rows in every table survive, the foreign keys do not wipe logs or bands, `PRAGMA foreign_key_check` is clean, and the app's own builder opens the migrated file.
+- **`room-testing`** needs kotlinx-serialization 1.8+, but the app's dependencies pin 1.7.3 and the test run has to match the app. Fix: `debugImplementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1")`. Release builds are not touched.
+- **Backup format is now 2.** Exports have no `groups` and no `groupId`. Format 1 files still import: `groups` and `groupId` are read past and ignored, so even a broken group reference no longer blocks an import. Version 3 or higher is refused. Test fixture: `app/src/test/resources/backup_v1.json`. Phase 3 adds the time fields to format 2 (old format 2 files from this phase have none, which is fine because they are optional).
+- **A group widget already on the home screen** stops working and has to be removed by hand. Its old saved choice (`group:<id>`) decodes to nothing.
+- **Three-dot menu:** `MoreButton` in `ui/Components.kt`, three dots drawn with `Canvas` (no icon library: `material-icons-core` is not on the classpath and adding a dependency for one icon is not worth it). Content description "More options", 48 dp tap target. Used on Home and on the tracker screen (the only two menus).
+- **Test run wipes the phone's data.** The phone had the release build (different signing key), so Gradle's uninstall removed it. After this phase the phone has a fresh debug install with one dummy tracker "Test". Re-import your backup from Settings -> Backup -> Import backup.

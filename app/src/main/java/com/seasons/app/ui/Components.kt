@@ -2,6 +2,7 @@
 
 package com.seasons.app.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.seasons.app.data.BandPeriod
 import java.time.Instant
@@ -327,7 +332,19 @@ fun ChangeBandDialog(
 }
 
 
-/** Back link plus a screen title. */
+/** Three-dot menu button (top right of a screen). */
+@Composable
+fun MoreButton(onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.semantics { contentDescription = "More options" }) {
+        // Three dots, stacked. Drawn here so no icon library is needed.
+        Canvas(Modifier.size(24.dp)) {
+            val r = 2.dp.toPx()
+            listOf(5.dp, 12.dp, 19.dp).forEach { y -> drawCircle(Grey1, radius = r, center = Offset(size.width / 2, y.toPx())) }
+        }
+    }
+}
+
+/** Back link plus the screen title. */
 @Composable
 fun ScreenHeader(title: String, onBack: () -> Unit) {
     Column {
@@ -369,35 +386,5 @@ fun ColorPicker(color: Int, onColor: (Int) -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Selected color", color = Grey1)
         }
-    }
-}
-
-/** Create or rename/recolor a group. */
-@Composable
-fun GroupDialog(
-    title: String,
-    initialName: String,
-    initialColor: Int,
-    onSave: (String, Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var name by rememberSaveable { mutableStateOf(initialName) }
-    var color by rememberSaveable { mutableStateOf(initialColor) }
-    val focus = rememberAutoFocus()
-    FormDialog(
-        title = title,
-        confirmText = "Save",
-        confirmEnabled = name.isNotBlank(),
-        onConfirm = {
-            onSave(name, color)
-            onDismiss()
-        },
-        onDismiss = onDismiss,
-    ) {
-        OutlinedTextField(
-            value = name, onValueChange = { name = it }, singleLine = true,
-            label = { Text("Group name") }, modifier = Modifier.fillMaxWidth().focusRequester(focus),
-        )
-        ColorPicker(color) { color = it }
     }
 }

@@ -3,8 +3,6 @@ package com.seasons.app.widget
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Tracker
-import com.seasons.app.data.TrackerGroup
-import com.seasons.app.data.TrackerStatus
 import com.seasons.app.domain.Band
 import com.seasons.app.ui.HomeRow
 import com.seasons.app.ui.buildHomeRow
@@ -25,11 +23,9 @@ import java.time.ZonedDateTime
 
 sealed interface WidgetTarget {
     data class OfTracker(val id: Long) : WidgetTarget
-    data class OfGroup(val id: Long) : WidgetTarget
 
     fun encode(): String = when (this) {
         is OfTracker -> "tracker:$id"
-        is OfGroup -> "group:$id"
     }
 
     companion object {
@@ -39,7 +35,6 @@ sealed interface WidgetTarget {
             val id = parts[1].toLongOrNull() ?: return null
             return when (parts[0]) {
                 "tracker" -> OfTracker(id)
-                "group" -> OfGroup(id)
                 else -> null
             }
         }
@@ -71,19 +66,6 @@ data class SingleWidgetData(
     val chart: BarChartModel,
 )
 
-data class WidgetRow(
-    val trackerId: Long,
-    val name: String,
-    val color: Int,
-    val main: String,
-    val progress: Float,
-    val status: String,
-    val metToday: Boolean,
-    val streak: String,
-)
-
-data class GroupWidgetData(val groupName: String, val color: Int, val rows: List<WidgetRow>)
-
 fun buildSingleData(tracker: Tracker, logs: List<LogEntry>, bands: List<Band>, today: LocalDate): SingleWidgetData {
     val summary = buildTrackerSummary(tracker, logs, bands, today)
     val row = buildHomeRow(tracker, logs, bands, today)
@@ -101,51 +83,13 @@ fun buildSingleData(tracker: Tracker, logs: List<LogEntry>, bands: List<Band>, t
     )
 }
 
-fun HomeRow.toWidgetRow() = WidgetRow(
-    trackerId = tracker.id,
-    name = tracker.name,
-    color = tracker.color,
-    main = mainText(),
-    progress = progress,
-    status = statusText(),
-    metToday = metToday,
-    streak = streakText(),
-)
-
-/** Active trackers of [group], in their usual order. */
-fun buildGroupData(
-    group: TrackerGroup,
-    trackers: List<Tracker>,
-    logs: List<LogEntry>,
-    bands: List<com.seasons.app.data.BandHistory>,
-    today: LocalDate,
-): GroupWidgetData {
-    val logsBy = logs.groupBy { it.trackerId }
-    val bandsBy = bands.groupBy { it.trackerId }
-    val rows = trackers
-        .filter { it.groupId == group.id && it.status == TrackerStatus.ACTIVE }
-        .map { buildHomeRow(it, logsBy[it.id].orEmpty(), bandsBy[it.id].orEmpty().toBands(), today).toWidgetRow() }
-    return GroupWidgetData(group.name, group.color, rows)
-}
-
-/** Reads the current data. Null if the tracker or group no longer exists. */
+/** Reads the current data. Null if the tracker no longer exists. */
 object WidgetLoader {
     suspend fun single(repo: Repository, trackerId: Long, today: LocalDate = LocalDate.now()): SingleWidgetData? {
         val tracker = repo.getTracker(trackerId) ?: return null
         val logs = repo.observeLogs(trackerId).first()
         val bands = repo.observeBands(trackerId).first().toBands()
         return buildSingleData(tracker, logs, bands, today)
-    }
-
-    suspend fun group(repo: Repository, groupId: Long, today: LocalDate = LocalDate.now()): GroupWidgetData? {
-        val group = repo.observeGroups().first().firstOrNull { it.id == groupId } ?: return null
-        return buildGroupData(
-            group,
-            repo.observeTrackers().first(),
-            repo.observeAllLogs().first(),
-            repo.observeAllBands().first(),
-            today,
-        )
     }
 }
 
