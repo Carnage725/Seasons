@@ -51,6 +51,13 @@ import com.seasons.app.data.validateSeasonChange
 import com.seasons.app.domain.seasonDay
 import com.seasons.app.domain.seasonNumber
 import com.seasons.app.ui.charts.shortDate
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import java.time.format.DateTimeFormatter
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -217,7 +224,11 @@ private fun ChangeSeasonDialog(
 @Composable
 fun SeasonsHistoryScreen(vm: SeasonsViewModel, onOpen: (Long) -> Unit, onBack: () -> Unit) {
     val items by vm.items.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val today = LocalDate.now()
+    val current = settings?.let {
+        currentSeasonWindow(it.seasonStartDate, it.seasonLength, today, seasonBase(items.orEmpty().map { s -> s.summary }, it.seasonStartDate))
+    }
     Scaffold { padding ->
         LazyColumn(
             Modifier.padding(padding),
@@ -225,6 +236,24 @@ fun SeasonsHistoryScreen(vm: SeasonsViewModel, onOpen: (Long) -> Unit, onBack: (
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { ScreenHeader("Seasons", onBack) }
+
+            // The running season: number, dates, progress, then the calendar from its first day to its last.
+            if (current != null) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Season ${current.number}", fontSize = 28.sp, fontWeight = FontWeight.Medium)
+                        Text("${fullDate(current.start)} – ${fullDate(current.end)}", color = Grey1)
+                        Text(seasonProgressText(current, today), color = Grey1)
+                    }
+                }
+                items(buildSeasonCalendar(current.start, current.end), key = { it.month.toString() }) { block ->
+                    MonthCalendar(block, current, today)
+                }
+            }
+
+            item {
+                Text("Past seasons", color = Grey1, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+            }
             val list = items
             if (list != null && list.isEmpty()) {
                 item { Text("No finished seasons yet. A summary is saved when a season ends.", color = Grey1) }
@@ -239,6 +268,68 @@ fun SeasonsHistoryScreen(vm: SeasonsViewModel, onOpen: (Long) -> Unit, onBack: (
                 }
             }
         }
+    }
+}
+
+private val monthTitle = DateTimeFormatter.ofPattern("MMMM yyyy")
+private val fullDateFormat = DateTimeFormatter.ofPattern("MMM d, yyyy")
+private val weekdayLetters = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+private fun fullDate(date: LocalDate): String = date.format(fullDateFormat)
+
+/**
+ * One month of the season, Monday first. Only days inside the season are drawn. Today has an outline, future days are
+ * dimmer, and the first and last day of the season sit on a grey tile. Grey only: no tracker colors here.
+ */
+@Composable
+private fun MonthCalendar(block: MonthBlock, season: SeasonWindow, today: LocalDate) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(block.month.format(monthTitle), style = MaterialTheme.typography.titleMedium)
+        Row(Modifier.fillMaxWidth()) {
+            weekdayLetters.forEach { w ->
+                Text(w, color = Grey1, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            }
+        }
+        block.weeks().forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { date ->
+                    if (date == null) {
+                        Spacer(Modifier.weight(1f).aspectRatio(1f))
+                    } else {
+                        DayCell(date, season, today, Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayCell(date: LocalDate, season: SeasonWindow, today: LocalDate, modifier: Modifier) {
+    val isToday = date == today
+    val isEdge = date == season.start || date == season.end
+    val label = buildString {
+        append(date.format(fullDateFormat))
+        if (isToday) append(", today")
+        if (date == season.start) append(", first day of the season")
+        if (date == season.end) append(", last day of the season")
+    }
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .padding(2.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isEdge) Grey3 else Color.Transparent)
+            .then(if (isToday) Modifier.border(1.5.dp, TextMain, RoundedCornerShape(8.dp)) else Modifier)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            date.dayOfMonth.toString(),
+            color = if (date.isAfter(today)) Grey1 else TextMain,
+            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            fontSize = 15.sp,
+        )
     }
 }
 

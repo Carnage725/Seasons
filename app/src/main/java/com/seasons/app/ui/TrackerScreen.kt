@@ -273,9 +273,8 @@ fun TrackerScreen(
             // 4. Streaks
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                    StreakStat("Current", s.streaks.current, s.streaks.unit)
-                    StreakStat("Best", s.streaks.best, s.streaks.unit)
-                    StreakStat("Average", s.streaks.average, s.streaks.unit)
+                    StreakStat("Current streak", s.streaks.current, s.streaks.unit)
+                    StreakStat("Avg streak", s.streaks.average, s.streaks.unit)
                 }
             }
             // 5. Charts
