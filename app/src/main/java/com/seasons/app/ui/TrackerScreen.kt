@@ -273,8 +273,8 @@ fun TrackerScreen(
             // 4. Streaks
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                    StreakStat("Current streak", s.streaks.current, s.streaks.unit)
-                    StreakStat("Avg streak", s.streaks.average, s.streaks.unit)
+                    StreakStat("Current streak", s.streaks.current)
+                    StreakStat("Avg streak", s.streaks.average)
                 }
             }
             // 5. Charts
@@ -324,11 +324,10 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
 }
 
 @Composable
-private fun StreakStat(label: String, value: String, unit: String) {
+private fun StreakStat(label: String, value: String) {
     Column {
         Text(value, fontSize = 24.sp, fontWeight = FontWeight.Medium)
         Text(label, color = Grey1, style = MaterialTheme.typography.bodySmall)
-        Text(unit, color = Grey1, style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -215,3 +215,4 @@
 - **Past seasons** stay as a list under the calendar, unchanged.
 - **Tracker stats** (tracker screen): "Current / Best / Average" are replaced by **"Current streak" and "Avg streak"** (with days, or weeks for weekly bands). "Best" is no longer shown on the tracker screen. It is still computed and still used on the trophy shelf and in season summaries.
 - **Instrumented tests were not run for these two changes** (nothing in the data layer changed). They wipe the app's data on the phone, and your own data is on it now.
+- **No unit under the streak stats** (asked for): the tracker screen shows just the number with "Current streak" and "Avg streak". This also drops "weeks" for weekly-band trackers, so a weekly streak of 3 reads as `3` with no unit.
