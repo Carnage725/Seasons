@@ -136,3 +136,9 @@
 - **A group widget already on the home screen** stops working and has to be removed by hand. Its old saved choice (`group:<id>`) decodes to nothing.
 - **Three-dot menu:** `MoreButton` in `ui/Components.kt`, three dots drawn with `Canvas` (no icon library: `material-icons-core` is not on the classpath and adding a dependency for one icon is not worth it). Content description "More options", 48 dp tap target. Used on Home and on the tracker screen (the only two menus).
 - **Test run wipes the phone's data.** The phone had the release build (different signing key), so Gradle's uninstall removed it. After this phase the phone has a fresh debug install with one dummy tracker "Test". Re-import your backup from Settings -> Backup -> Import backup.
+
+## MVP 2, Phase 2 (simplify archive)
+- **Unarchive is one tap:** Archive screen -> tap a tracker -> "Resume "name"?" -> Resume. Status goes back to ACTIVE and all logs are kept. The days spent archived count as missed for streaks, as the old "Continue" did. `Repository.unarchive` does nothing if the tracker is not archived (stale second tap).
+- **"Start fresh" removed:** `Repository.startFresh`, `freshCopy` and `TrackerCopies.kt` are deleted, together with their tests. **`TrackerStatus.REPLACED` removed.**
+- **Database version 3:** a manual `MIGRATION_2_3` (`UPDATE trackers SET status = 'ARCHIVED' WHERE status = 'REPLACED'`), registered in `AppDatabase.get`. Schema is otherwise identical. The migration tests check statuses and that all logs survive, and that a version 1 file walks 1 -> 2 -> 3 with the app's own builder.
+- **Import:** `REPLACED` in an older backup is read as `ARCHIVED`. Any other unknown status is still rejected. The version 1 test fixture now holds a `REPLACED` tracker.

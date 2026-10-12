@@ -8,8 +8,7 @@ import java.time.LocalDate
 
 enum class TrackerType { GOAL, ONGOING }
 enum class BandPeriod { DAILY, WEEKLY, NONE }
-/** REPLACED: archived, then restarted with "Start fresh". Kept as history but not shown in Archive. */
-enum class TrackerStatus { ACTIVE, ARCHIVED, COMPLETED, REPLACED }
+enum class TrackerStatus { ACTIVE, ARCHIVED, COMPLETED }
 
 @Entity(tableName = "trackers")
 data class Tracker(

@@ -113,26 +113,15 @@ fun ArchiveScreen(vm: ArchiveViewModel, onBack: () -> Unit) {
     if (picked != null) {
         AlertDialog(
             onDismissRequest = { pickedId = null },
-            title = { Text("Unarchive \"${picked.name}\"") },
-            text = {
-                Text(
-                    "Continue where you left off keeps all logs. " +
-                        "Start fresh makes a new tracker with the same settings and leaves this one archived.",
-                )
-            },
+            title = { Text("Resume \"${picked.name}\"?") },
+            text = { Text("It goes back to Home with all its logs.") },
             confirmButton = {
-                Column(horizontalAlignment = Alignment.End) {
-                    TextButton(onClick = {
-                        vm.continueWhereLeftOff(picked)
-                        pickedId = null
-                    }) { Text("Continue where you left off") }
-                    TextButton(onClick = {
-                        vm.startFresh(picked)
-                        pickedId = null
-                    }) { Text("Start fresh") }
-                    TextButton(onClick = { pickedId = null }) { Text("Cancel", color = Grey1) }
-                }
+                TextButton(onClick = {
+                    vm.unarchive(picked)
+                    pickedId = null
+                }) { Text("Resume") }
             },
+            dismissButton = { TextButton(onClick = { pickedId = null }) { Text("Cancel", color = Grey1) } },
         )
     }
 

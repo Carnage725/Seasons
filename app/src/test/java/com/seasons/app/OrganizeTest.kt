@@ -6,7 +6,6 @@ import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Tracker
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.data.TrackerType
-import com.seasons.app.data.freshCopy
 import com.seasons.app.ui.buildHomeRow
 import com.seasons.app.ui.buildTrophy
 import org.junit.Assert.assertEquals
@@ -28,34 +27,6 @@ class OrganizeTest {
     )
 
     private fun row(t: Tracker) = buildHomeRow(t, emptyList(), emptyList(), today)
-
-    // ---------- start fresh ----------
-
-    @Test fun freshCopy_keepsSettings_resetsHistoryFields() {
-        val old = tracker(5).copy(
-            status = TrackerStatus.ARCHIVED, completedDate = d(-1), deadline = d(20), bandPeriod = BandPeriod.DAILY,
-            sortOrder = 4,
-        )
-        val c = freshCopy(old, today)
-        assertEquals(0L, c.id)
-        assertEquals(old.name, c.name)
-        assertEquals(old.unit, c.unit)
-        assertEquals(old.type, c.type)
-        assertEquals(old.color, c.color)
-        assertEquals(100.0, c.target!!, 0.0)
-        assertEquals(BandPeriod.DAILY, c.bandPeriod)
-        assertEquals(today, c.startDate)
-        assertEquals(TrackerStatus.ACTIVE, c.status)
-        assertNull(c.completedDate)
-        assertEquals(d(20), c.deadline)
-        assertEquals(4, c.sortOrder)
-    }
-
-    @Test fun freshCopy_dropsPastDeadline_keepsTodayOrFuture() {
-        assertNull(freshCopy(tracker(1).copy(deadline = d(-1)), today).deadline)
-        assertEquals(today, freshCopy(tracker(1).copy(deadline = today), today).deadline)
-        assertNull(freshCopy(tracker(1), today).deadline)
-    }
 
     // ---------- trophy ----------
 

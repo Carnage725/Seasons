@@ -35,11 +35,7 @@ class ArchiveViewModel(private val repo: Repository) : ViewModel() {
         .map { all -> all.filter { it.status == TrackerStatus.ARCHIVED } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun continueWhereLeftOff(tracker: Tracker) {
-        viewModelScope.launch { repo.unarchiveContinue(tracker) }
-    }
-
-    fun startFresh(tracker: Tracker) {
-        viewModelScope.launch { repo.startFresh(tracker) }
+    fun unarchive(tracker: Tracker) {
+        viewModelScope.launch { repo.unarchive(tracker) }
     }
 }

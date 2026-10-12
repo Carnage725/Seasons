@@ -55,7 +55,7 @@ class BackupTest {
             ),
             Tracker(
                 id = 4, name = "Old", unit = "x", type = TrackerType.ONGOING, color = 1, target = null,
-                deadline = null, bandPeriod = BandPeriod.DAILY, startDate = d.minusDays(5), status = TrackerStatus.REPLACED,
+                deadline = null, bandPeriod = BandPeriod.DAILY, startDate = d.minusDays(5), status = TrackerStatus.ARCHIVED,
                 completedDate = null, sortOrder = 5,
             ),
         ),
@@ -209,17 +209,27 @@ class BackupTest {
     @Test fun formatOneFile_stillImports_andGroupsAreIgnored() {
         val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
         val data = parseBackup(text)
-        assertEquals(listOf("The Mom Test", "Run", "Reading"), data.trackers.map { it.name })
+        assertEquals(listOf("The Mom Test", "Run", "Reading", "Old restarted"), data.trackers.map { it.name })
         assertEquals(2, data.bands.size)
         assertEquals(listOf(12.0, 4.5, 1.0), data.logs.map { it.amount })
         assertEquals(77, data.settings!!.seasonLength)
     }
 
+    @Test fun oldReplacedStatus_isReadAsArchived() {
+        val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
+        val data = parseBackup(text)
+        assertEquals(TrackerStatus.ARCHIVED, data.trackers.first { it.name == "Old restarted" }.status)
+    }
+
+    @Test fun unknownStatus_isStillRejected() = assertRejected("Unknown tracker status", json {
+        it.getJSONArray("trackers").getJSONObject(0).put("status", "PAUSED")
+    })
+
     @Test fun formatOneFile_withBadGroupData_isNotRejectedForIt() {
         // A group reference that points nowhere used to be an error. Groups are gone, so it is ignored.
         val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
             .replace("\"groupId\":1", "\"groupId\":99")
-        assertEquals(3, parseBackup(text).trackers.size)
+        assertEquals(4, parseBackup(text).trackers.size)
     }
 
     @Test fun export_writesFormatTwoWithoutGroups() {

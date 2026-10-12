@@ -9,11 +9,20 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.AutoMigrationSpec
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Version 2: the Groups feature is gone. Trackers, logs, bands, settings and summaries are kept. */
 @DeleteTable(tableName = "groups")
 @DeleteColumn(tableName = "trackers", columnName = "groupId")
 class Migration1To2 : AutoMigrationSpec
+
+/** Version 3: the REPLACED status is gone. Those trackers (restarted with "Start fresh") become plain archived ones. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE trackers SET status = 'ARCHIVED' WHERE status = 'REPLACED'")
+    }
+}
 
 @Database(
     entities = [
@@ -23,7 +32,7 @@ class Migration1To2 : AutoMigrationSpec
         Settings::class,
         SeasonSummary::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
     autoMigrations = [AutoMigration(from = 1, to = 2, spec = Migration1To2::class)],
 )
@@ -43,7 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java,
                 "seasons.db",
-            ).build().also { instance = it }
+            ).addMigrations(MIGRATION_2_3).build().also { instance = it }
         }
     }
 }

@@ -128,6 +128,10 @@ private inline fun <reified E : Enum<E>> JSONObject.enumValue(key: String, what:
     return enumValues<E>().firstOrNull { it.name == raw } ?: fail("Unknown $what \"$raw\".")
 }
 
+/** Old files may hold REPLACED (a tracker restarted with "Start fresh"). That status is gone: it is read as ARCHIVED. */
+private fun JSONObject.trackerStatus(): TrackerStatus =
+    if (getString("status") == "REPLACED") TrackerStatus.ARCHIVED else enumValue<TrackerStatus>("status", "tracker status")
+
 private fun JSONObject.dateValue(key: String): LocalDate = try {
     LocalDate.parse(getString(key))
 } catch (e: java.time.format.DateTimeParseException) {
@@ -179,7 +183,7 @@ private fun parseRoot(root: JSONObject): BackupData {
             deadline = it.nullableDate("deadline"),
             bandPeriod = it.enumValue<BandPeriod>("bandPeriod", "band period"),
             startDate = it.dateValue("startDate"),
-            status = it.enumValue<TrackerStatus>("status", "tracker status"),
+            status = it.trackerStatus(),
             completedDate = it.nullableDate("completedDate"),
             sortOrder = it.getInt("sortOrder"),
         )

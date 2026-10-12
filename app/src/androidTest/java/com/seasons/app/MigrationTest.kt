@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.seasons.app.data.AppDatabase
+import com.seasons.app.data.MIGRATION_2_3
 import com.seasons.app.data.Migration1To2
 import com.seasons.app.data.Repository
 import kotlinx.coroutines.flow.first
@@ -96,7 +97,7 @@ class MigrationTest {
         }
 
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbName).build()
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbName).addMigrations(MIGRATION_2_3).build()
         val repo = Repository(db)
         val tracker = repo.getTracker(1)
         assertNotNull(tracker)
@@ -105,6 +106,45 @@ class MigrationTest {
         // New writes still work after the migration.
         repo.addLog(1, java.time.LocalDate.ofEpochDay(20330), 1.0, java.time.LocalDate.ofEpochDay(20331))
         assertEquals(2, repo.observeLogs(1).first().size)
+        db.close()
+    }
+
+    @Test fun v2ToV3_replacedBecomesArchived_nothingElseChanges() {
+        helper.createDatabase(dbName, 2).apply {
+            execSQL(
+                "INSERT INTO trackers (id, name, unit, type, color, target, deadline, bandPeriod, startDate, status, completedDate, sortOrder) VALUES " +
+                    "(1, 'Restarted', 'x', 'ONGOING', 1, NULL, NULL, 'DAILY', 20300, 'REPLACED', NULL, 0), " +
+                    "(2, 'Active', 'x', 'GOAL', 2, 10.0, NULL, 'NONE', 20300, 'ACTIVE', NULL, 1), " +
+                    "(3, 'Archived', 'x', 'GOAL', 3, 10.0, NULL, 'NONE', 20300, 'ARCHIVED', NULL, 2), " +
+                    "(4, 'Trophy', 'x', 'GOAL', 4, 10.0, NULL, 'NONE', 20300, 'COMPLETED', 20310, 3)",
+            )
+            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 2.0, 1), (2, 2, 20330, 3.0, 2)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(dbName, 3, true, MIGRATION_2_3)
+        val statuses = db.query("SELECT id, status FROM trackers ORDER BY id").use {
+            buildList { while (it.moveToNext()) add(it.getLong(0) to it.getString(1)) }
+        }
+        assertEquals(listOf(1L to "ARCHIVED", 2L to "ACTIVE", 3L to "ARCHIVED", 4L to "COMPLETED"), statuses)
+        assertEquals(2, count(db, "log_entries"))
+        db.close()
+    }
+
+    @Test fun v1ToV3_fullChain_opensWithTheAppsBuilder() = runBlocking {
+        helper.createDatabase(dbName, 1).apply {
+            execSQL("INSERT INTO groups (id, name, color, sortOrder) VALUES (1, 'Study', 5, 0)")
+            execSQL(
+                "INSERT INTO trackers (id, name, unit, type, color, groupId, target, deadline, bandPeriod, startDate, status, completedDate, sortOrder) VALUES " +
+                    "(1, 'Restarted', 'x', 'ONGOING', 1, 1, NULL, NULL, 'DAILY', 20300, 'REPLACED', NULL, 0)",
+            )
+            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 2.0, 1)")
+            close()
+        }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbName).addMigrations(MIGRATION_2_3).build()
+        val repo = Repository(db)
+        assertEquals("ARCHIVED", repo.getTracker(1)!!.status.name)
+        assertEquals(1, repo.observeLogs(1).first().size)
         db.close()
     }
 }
