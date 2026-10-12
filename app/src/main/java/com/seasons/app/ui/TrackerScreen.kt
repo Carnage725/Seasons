@@ -50,7 +50,7 @@ import com.seasons.app.ui.charts.OnTrackChart
 import com.seasons.app.ui.charts.describeBarChart
 import com.seasons.app.ui.charts.describeOnTrack
 import com.seasons.app.ui.charts.SeasonHeatmap
-import com.seasons.app.ui.charts.TimeStrip
+import com.seasons.app.ui.charts.describeTimeStrip
 import java.time.LocalDate
 
 /** Header, status line, today/quick-log, streaks, history. Charts come in Phase 4. */
@@ -357,13 +357,12 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
         ChartTabs(tabs, index, onSelect = { selected = it })
         Spacer(Modifier.height(12.dp))
         when (tabs[index]) {
-            "Daily" -> Column {
-                BarChart(ui.charts.daily, color, describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit))
-                ui.charts.dailyTime?.let {
-                    Spacer(Modifier.height(14.dp))
-                    TimeStrip(it)
-                }
-            }
+            "Daily" -> BarChart(
+                ui.charts.daily, color,
+                describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit) +
+                    (ui.charts.dailyTime?.let { " " + describeTimeStrip(it) } ?: ""),
+                time = ui.charts.dailyTime,
+            )
             "Weekly" -> BarChart(ui.charts.weekly, color, describeBarChart("Weekly chart, last 11 weeks", ui.charts.weekly, ui.tracker.unit))
             "Season" -> {
                 val season = ui.charts.season

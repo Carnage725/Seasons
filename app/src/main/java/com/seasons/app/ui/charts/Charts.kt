@@ -102,7 +102,14 @@ fun ChartTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 // ---------- Bar chart (Daily and Weekly) ----------
 
 @Composable
-fun BarChart(model: BarChartModel, color: Color, description: String, modifier: Modifier = Modifier) {
+fun BarChart(
+    model: BarChartModel,
+    color: Color,
+    description: String,
+    modifier: Modifier = Modifier,
+    /** Stopwatch minutes drawn as a line over the bars, or null. */
+    time: TimeStripModel? = null,
+) {
     val measurer = rememberTextMeasurer()
     Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
         val rightPad = 44.dp.toPx()
@@ -138,6 +145,36 @@ fun BarChart(model: BarChartModel, color: Color, description: String, modifier: 
         }
         drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
 
+        // Time line over the bars. Minutes are a different unit, so the line has its own hidden scale (zero at the
+        // baseline, longest day at the top) and key points are labeled directly. It breaks on days without time,
+        // because "no stopwatch" is not the same as "zero minutes".
+        if (time != null) {
+            fun ty(m: Long) = topPad + plotH * (1f - m.toFloat() / time.maxMinutes.toFloat())
+            fun cx(i: Int) = i * slot + slot / 2f
+            val halo = 5.dp.toPx()
+            val line = 2.dp.toPx()
+            for (pass in 0..1) { // dark halo first, so the line stays readable over a bar of any color
+                val c = if (pass == 0) AppBackground else TextMain
+                val w = if (pass == 0) halo else line
+                for (i in 0 until n - 1) {
+                    if (time.minutes[i] > 0L && time.minutes[i + 1] > 0L) {
+                        drawLine(c, Offset(cx(i), ty(time.minutes[i])), Offset(cx(i + 1), ty(time.minutes[i + 1])), w, StrokeCap.Round)
+                    }
+                }
+                time.minutes.forEachIndexed { i, m ->
+                    if (m > 0L) drawCircle(c, if (pass == 0) 4.5.dp.toPx() else 3.dp.toPx(), Offset(cx(i), ty(m)))
+                }
+            }
+            timeLabelIndices(time).forEach { i ->
+                val py = ty(time.minutes[i])
+                val above = py - 18.dp.toPx()
+                label(
+                    measurer, formatMinutes(time.minutes[i]), TextMain, cx(i).coerceIn(14.dp.toPx(), plotW - 14.dp.toPx()),
+                    if (above < 0f) py + 8.dp.toPx() else above, Anchor.CENTER, backdrop = AppBackground,
+                )
+            }
+        }
+
         // Only the last bar (today / this week) gets its value.
         val last = model.bars.last()
         val lastCenter = (n - 1) * slot + slot / 2f
@@ -150,42 +187,6 @@ fun BarChart(model: BarChartModel, color: Color, description: String, modifier: 
 
         label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
         label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
-    }
-}
-
-// ---------- Time strip (under the Daily chart) ----------
-
-/**
- * Stopwatch minutes per day, pulled apart from the amount chart (its own scale, starting at zero) and sharing the
- * same days. Grey, so color stays reserved for the tracker's amount. Only today's value is labeled.
- */
-@Composable
-fun TimeStrip(model: TimeStripModel, modifier: Modifier = Modifier) {
-    val measurer = rememberTextMeasurer()
-    Canvas(modifier.fillMaxWidth().height(86.dp).semantics { contentDescription = describeTimeStrip(model) }) {
-        val rightPad = 44.dp.toPx() // same as BarChart, so the days line up
-        val topPad = 36.dp.toPx() // room for the caption and today's value
-        val plotW = size.width - rightPad
-        val plotH = size.height - topPad
-        val n = model.minutes.size
-        val slot = plotW / n
-        val barW = slot * 0.62f
-        fun y(v: Long) = topPad + plotH * (1f - v.toFloat() / model.maxMinutes.toFloat())
-        val baseY = y(0)
-
-        label(measurer, "Time per day · longest ${formatMinutes(model.maxMinutes)}", Grey1, 0f, 0f)
-
-        model.minutes.forEachIndexed { i, m ->
-            if (m > 0L) {
-                val top = y(m)
-                drawRect(Grey2, Offset(i * slot + (slot - barW) / 2f, top), Size(barW, baseY - top))
-            }
-        }
-        drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
-
-        val last = model.minutes.last()
-        val lastCenter = (n - 1) * slot + slot / 2f
-        label(measurer, formatMinutes(last), TextMain, lastCenter, y(last) - 16.dp.toPx(), Anchor.CENTER, bold = true)
     }
 }
 

@@ -72,7 +72,7 @@ fun buildDailyChart(
     )
 }
 
-/** The minutes strip under the Daily chart: stopwatch minutes per day, same days as the bars. */
+/** Stopwatch minutes per day for the last days, drawn as a line over the Daily bars. */
 data class TimeStripModel(val minutes: List<Long>, val maxMinutes: Long)
 
 /** Null when none of the last [days] days has stopwatch time, so a tracker without time looks as it always did. */
@@ -258,7 +258,14 @@ fun describeBarChart(title: String, model: BarChartModel, unit: String): String 
 }
 
 fun describeTimeStrip(model: TimeStripModel): String =
-    "Time per day, same days. Today ${formatMinutes(model.minutes.last())}. Longest day ${formatMinutes(model.maxMinutes)}."
+    "Time line over the same days. Today ${formatMinutes(model.minutes.last())}. Longest day ${formatMinutes(model.maxMinutes)}."
+
+/** Days whose time gets a direct label on the line: the longest day, and today when it has time (and is not the longest). */
+fun timeLabelIndices(model: TimeStripModel): List<Int> {
+    val longest = model.minutes.indexOf(model.maxMinutes)
+    val last = model.minutes.lastIndex
+    return if (model.minutes[last] > 0L && last != longest) listOf(longest, last) else listOf(longest)
+}
 
 fun describeSeason(model: SeasonModel): String =
     "Season ${model.number} heatmap, day ${model.dayOfSeason} of ${model.length}. " +

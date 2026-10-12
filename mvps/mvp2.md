@@ -216,3 +216,4 @@ All six phases are built, tested (207 unit tests, 46 instrumented tests includin
 - **The three-dot icon is drawn** with a Canvas instead of an icon library.
 - **Debug builds** pin kotlinx-serialization 1.8.1 so `room-testing` works. Release builds are untouched.
 - The details of every choice are in `DECISIONS.md` ("MVP 2, Phase 1" to "Phase 6").
+- **Section 5 changed after phase 6:** the time is now a **line over the Daily bars** (book option: label the points directly, no second axis), not a separate strip. See `DECISIONS.md`.

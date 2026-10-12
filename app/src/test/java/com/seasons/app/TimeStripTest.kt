@@ -3,6 +3,7 @@ package com.seasons.app
 import com.seasons.app.data.LogEntry
 import com.seasons.app.ui.charts.buildTimeStrip
 import com.seasons.app.ui.charts.describeTimeStrip
+import com.seasons.app.ui.charts.timeLabelIndices
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -49,6 +50,26 @@ class TimeStripTest {
 
     @Test fun description_mentionsTodayAndLongestDay() {
         val m = buildTimeStrip(listOf(timed(1, today, 65), timed(2, today.minusDays(1), 125)), today)!!
-        assertEquals("Time per day, same days. Today 1h 5m. Longest day 2h 5m.", describeTimeStrip(m))
+        assertEquals("Time line over the same days. Today 1h 5m. Longest day 2h 5m.", describeTimeStrip(m))
+    }
+
+    @Test fun labels_longestDay_andTodayWhenItHasTime() {
+        val m = buildTimeStrip(listOf(timed(1, today.minusDays(5), 60), timed(2, today, 20)), today)!!
+        assertEquals(listOf(8, 13), timeLabelIndices(m))
+    }
+
+    @Test fun labels_todayIsTheLongest_onlyOnce() {
+        val m = buildTimeStrip(listOf(timed(1, today.minusDays(5), 20), timed(2, today, 60)), today)!!
+        assertEquals(listOf(13), timeLabelIndices(m))
+    }
+
+    @Test fun labels_todayWithoutTime_notLabeled() {
+        val m = buildTimeStrip(listOf(timed(1, today.minusDays(2), 45)), today)!!
+        assertEquals(listOf(11), timeLabelIndices(m))
+    }
+
+    @Test fun labels_tiedLongestDays_firstOneWins() {
+        val m = buildTimeStrip(listOf(timed(1, today.minusDays(6), 30), timed(2, today.minusDays(2), 30)), today)!!
+        assertEquals(listOf(7), timeLabelIndices(m))
     }
 }
