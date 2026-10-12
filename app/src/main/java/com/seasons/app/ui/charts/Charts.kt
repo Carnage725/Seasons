@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
@@ -39,7 +38,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -102,77 +100,55 @@ fun ChartTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 
 // ---------- Bar chart (Daily and Weekly) ----------
 
-/** Room on the left for the y axis labels of the Daily bar chart. */
-val ChartLeftPad = 40.dp
-
 @Composable
-fun BarChart(
-    model: BarChartModel,
-    color: Color,
-    description: String,
-    modifier: Modifier = Modifier,
-    /** Empty space on the left. With [showAxis] it holds the axis labels. */
-    leftPad: Dp = 0.dp,
-    /** A y axis on the left: 0, half and a round maximum. The bars use that round maximum as their top. */
-    showAxis: Boolean = false,
-) {
+fun BarChart(model: BarChartModel, color: Color, description: String, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
     Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
-        val leftPx = leftPad.toPx()
         val rightPad = 44.dp.toPx()
         val topPad = 20.dp.toPx()
         val bottomPad = 22.dp.toPx()
-        val plotW = size.width - rightPad - leftPx
+        val plotW = size.width - rightPad
         val plotH = size.height - topPad - bottomPad
         val n = model.bars.size
         val slot = plotW / n
         val barW = slot * 0.62f
-        val scaleMax = if (showAxis) niceAmountMax(model.maxY) else model.maxY
-        fun y(v: Double) = topPad + plotH * (1f - (v / scaleMax).toFloat())
+        fun y(v: Double) = topPad + plotH * (1f - (v / model.maxY).toFloat())
         val baseY = y(0.0)
 
-        if (showAxis) {
-            amountAxisTicks(scaleMax).forEach { t ->
-                label(measurer, formatAmount(t), Grey1, leftPx - 6.dp.toPx(), y(t) - 7.dp.toPx(), Anchor.END)
+        // Band stripe: steps as the band changes. Each bar gets its own slice.
+        model.bars.forEachIndexed { i, bar ->
+            if (bar.lower != null && bar.upper != null) {
+                val top = y(bar.upper)
+                val bottom = y(bar.lower)
+                drawRect(Grey3, Offset(i * slot, top), Size(slot + 1f, maxOf(bottom - top, 2.dp.toPx()))) // +1px hides seams
             }
         }
 
-        translate(left = leftPx) {
-            // Band stripe: steps as the band changes. Each bar gets its own slice.
-            model.bars.forEachIndexed { i, bar ->
-                if (bar.lower != null && bar.upper != null) {
-                    val top = y(bar.upper)
-                    val bottom = y(bar.lower)
-                    drawRect(Grey3, Offset(i * slot, top), Size(slot + 1f, maxOf(bottom - top, 2.dp.toPx()))) // +1px hides seams
-                }
+        // Bars, always from zero.
+        model.bars.forEachIndexed { i, bar ->
+            if (bar.value > 0.0) {
+                val top = y(bar.value)
+                drawRect(
+                    if (bar.dim) Grey2 else color,
+                    Offset(i * slot + (slot - barW) / 2f, top),
+                    Size(barW, baseY - top),
+                )
             }
-
-            // Bars, always from zero.
-            model.bars.forEachIndexed { i, bar ->
-                if (bar.value > 0.0) {
-                    val top = y(bar.value)
-                    drawRect(
-                        if (bar.dim) Grey2 else color,
-                        Offset(i * slot + (slot - barW) / 2f, top),
-                        Size(barW, baseY - top),
-                    )
-                }
-            }
-            drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
-
-            // Only the last bar (today / this week) gets its value.
-            val last = model.bars.last()
-            val lastCenter = (n - 1) * slot + slot / 2f
-            label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
-
-            // Band range, labeled directly at the right end of the stripe.
-            if (model.bandLabel != null && last.lower != null && last.upper != null) {
-                label(measurer, model.bandLabel, Grey1, plotW + 6.dp.toPx(), y((last.lower + last.upper) / 2.0) - 7.dp.toPx())
-            }
-
-            label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
-            label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
         }
+        drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
+
+        // Only the last bar (today / this week) gets its value.
+        val last = model.bars.last()
+        val lastCenter = (n - 1) * slot + slot / 2f
+        label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
+
+        // Band range, labeled directly at the right end of the stripe.
+        if (model.bandLabel != null && last.lower != null && last.upper != null) {
+            label(measurer, model.bandLabel, Grey1, plotW + 6.dp.toPx(), y((last.lower + last.upper) / 2.0) - 7.dp.toPx())
+        }
+
+        label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
+        label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
     }
 }
 

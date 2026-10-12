@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Seasons icon: four season arcs around a dot -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- spring -->
+    <path
+        android:pathData="M56.00,31.09 A23,23 0 0,1 76.91,52.00"
+        android:strokeColor="#81C784"
+        android:strokeWidth="9" />
+    <!-- summer -->
+    <path
+        android:pathData="M76.91,56.00 A23,23 0 0,1 56.00,76.91"
+        android:strokeColor="#FFCA28"
+        android:strokeWidth="9" />
+    <!-- autumn -->
+    <path
+        android:pathData="M52.00,76.91 A23,23 0 0,1 31.09,56.00"
+        android:strokeColor="#FF7043"
+        android:strokeWidth="9" />
+    <!-- winter -->
+    <path
+        android:pathData="M31.09,52.00 A23,23 0 0,1 52.00,31.09"
+        android:strokeColor="#4FC3F7"
+        android:strokeWidth="9" />
+    <!-- today: a dot in the middle of the year -->
+    <path
+        android:fillColor="#E0E0E0"
+        android:pathData="M54,54 m-4.5,0 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0" />
+
+</vector>

@@ -10,8 +10,6 @@ import com.seasons.app.domain.seasonDay
 import com.seasons.app.domain.seasonNumber
 import com.seasons.app.domain.seasonStartDate
 import com.seasons.app.ui.formatAmount
-import java.math.BigDecimal
-import java.math.MathContext
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -70,19 +68,6 @@ fun buildDailyChart(
         lastLabel = "Today",
     )
 }
-
-private val NICE_MANTISSAS = listOf(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0)
-
-/** The smallest round axis maximum (1, 2, 3, 4, 5, 6, 8, 10, 20, 30 ... and the same below 1) at or above [value]. */
-fun niceAmountMax(value: Double): Double {
-    if (value <= 0.0 || !value.isFinite()) return 1.0
-    val power = Math.pow(10.0, Math.floor(Math.log10(value)))
-    val mantissa = NICE_MANTISSAS.first { it * power >= value - value * 1e-9 }
-    return BigDecimal.valueOf(mantissa * power).round(MathContext(6)).toDouble()
-}
-
-/** Axis labels for the amount bars: 0, half, and the maximum. */
-fun amountAxisTicks(axisMax: Double): List<Double> = listOf(0.0, axisMax / 2.0, axisMax)
 
 /** Last [weeks] Monday-start weeks ending with the current one. WEEKLY band trackers plot active days. */
 fun buildWeeklyChart(

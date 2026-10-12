@@ -44,7 +44,6 @@ import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.ui.charts.BarChart
-import com.seasons.app.ui.charts.ChartLeftPad
 import com.seasons.app.ui.charts.ChartTabs
 import com.seasons.app.ui.charts.OnTrackChart
 import com.seasons.app.ui.charts.describeBarChart
@@ -310,12 +309,7 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
         ChartTabs(tabs, index, onSelect = { selected = it })
         Spacer(Modifier.height(12.dp))
         when (tabs[index]) {
-            "Daily" -> BarChart(
-                ui.charts.daily, color,
-                describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit),
-                leftPad = ChartLeftPad,
-                showAxis = true,
-            )
+            "Daily" -> BarChart(ui.charts.daily, color, describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit))
             "Weekly" -> BarChart(ui.charts.weekly, color, describeBarChart("Weekly chart, last 11 weeks", ui.charts.weekly, ui.tracker.unit))
             "Season" -> {
                 val season = ui.charts.season
