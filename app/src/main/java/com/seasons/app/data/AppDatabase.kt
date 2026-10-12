@@ -31,10 +31,15 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         LogEntry::class,
         Settings::class,
         SeasonSummary::class,
+        RunningTimer::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2, spec = Migration1To2::class)],
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2, spec = Migration1To2::class),
+        // Version 4: stopwatch. Two nullable columns on log_entries and the running_timer table. Nothing is changed or lost.
+        AutoMigration(from = 3, to = 4),
+    ],
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -43,6 +48,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun logDao(): LogDao
     abstract fun settingsDao(): SettingsDao
     abstract fun seasonSummaryDao(): SeasonSummaryDao
+    abstract fun runningTimerDao(): RunningTimerDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null

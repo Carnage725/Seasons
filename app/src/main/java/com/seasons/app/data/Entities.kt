@@ -65,6 +65,30 @@ data class LogEntry(
     val date: LocalDate,
     val amount: Double,
     val createdAt: Long,
+    /** Stopwatch entries only: epoch millis. Both set, or both null (a plain +1, +5 or Custom entry). */
+    val startTime: Long? = null,
+    val endTime: Long? = null,
+) {
+    val isTimed: Boolean get() = startTime != null && endTime != null
+}
+
+/** The timer that is running now. At most one row, id = 1. Deleting its tracker deletes it too. */
+@Entity(
+    tableName = "running_timer",
+    foreignKeys = [
+        ForeignKey(
+            entity = Tracker::class,
+            parentColumns = ["id"],
+            childColumns = ["trackerId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("trackerId")],
+)
+data class RunningTimer(
+    @PrimaryKey val id: Int = 1,
+    val trackerId: Long,
+    val startTime: Long,
 )
 
 // Always exactly one row, id = 1.
