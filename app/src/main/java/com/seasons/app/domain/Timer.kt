@@ -25,9 +25,9 @@ fun timeError(startTime: Long, endTime: Long, now: Long): String? = when {
 fun runningStartError(startTime: Long, now: Long): String? =
     if (startTime > now) "Start cannot be in the future." else null
 
-/** "15m", "1h 5m", "2h". Under a minute gives "<1m". No trailing zeros. */
+/** "15m", "1h 5m", "2h". Zero (or under a minute, rounded down) gives "0m". No trailing zeros. */
 fun formatMinutes(minutes: Long): String = when {
-    minutes <= 0L -> "<1m"
+    minutes <= 0L -> "0m"
     minutes < 60L -> "${minutes}m"
     minutes % 60L == 0L -> "${minutes / 60L}h"
     else -> "${minutes / 60L}h ${minutes % 60L}m"

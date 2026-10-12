@@ -172,3 +172,10 @@
 - **Hidden when there is no time:** `buildTimeStrip` returns null when none of the last 14 days has stopwatch minutes, so a tracker without stopwatch data looks exactly as before. Each day's minutes are the whole minutes of the entries on that date (the end date), rounded down per entry, added up.
 - **Screen readers:** the strip has its own description (`describeTimeStrip`): today's time and the longest day.
 - **Not changed:** Weekly and Season tabs, the widget graph, season snapshots.
+
+## MVP 2, Phase 6 (final pass)
+- **Checked against `mvp1.md` §3** on the phone, with dummy data: dark only, grey except the tracker color (the time strip is grey), no legends (the strip caption is a direct label), no gridlines or borders, bars start at zero, no trailing zeros, the biggest number is still the biggest thing on Home and the tracker screen. A tracker without stopwatch data (Spanish words) looks exactly as before.
+- **Zero minutes reads "0m"**, not "<1m" (a day with no time showed "<1m" under the strip, which was wrong). Entries under one minute also round down to "0m".
+- **Version 1.1** (`versionCode 2`). No release build was made. An installed release build (signed with the release key) cannot be updated by a debug build, and the other way round.
+- **Dummy data:** an importable backup (`seasons-dummy-backup.json`, format 2, 4 trackers, 95 logs, 34 stopwatch entries) was put in the phone's Downloads. Pushing a database file straight into the app's private storage was refused by the tool permission check, so it was imported through the app's own Settings -> Backup -> Import instead. Importing replaces all data, so export your own backup first if the phone ever holds real data.
+- **Still open from `mvp2.md`:** time on the Weekly tab, and time totals on Home cards beyond the "Running" label.

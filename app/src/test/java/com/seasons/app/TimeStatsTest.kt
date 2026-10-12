@@ -48,8 +48,8 @@ class TimeStatsTest {
         assertEquals("Time today 45m · last 14 days 2h", buildTimeLine(logs, today))
     }
 
-    @Test fun timeLine_zeroToday_isLessThanAMinute() {
-        assertEquals("Time today <1m · last 14 days 20m", buildTimeLine(listOf(timed(1, today.minusDays(1), 20)), today))
+    @Test fun timeLine_zeroToday_isZeroMinutes() {
+        assertEquals("Time today 0m · last 14 days 20m", buildTimeLine(listOf(timed(1, today.minusDays(1), 20)), today))
     }
 
     @Test fun timeText_rangeAndDuration_nullForPlain() {

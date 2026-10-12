@@ -202,3 +202,17 @@ Rules:
 Per phase, in this order (project rules): short Findings note from the docs, short plan, user approval, implement, `./gradlew test`, `./gradlew connectedDebugAndroidTest`, `./gradlew installDebug`, drive the app over `adb`, then a "How to test on your phone" checklist. Commit only after the user confirms it works. Log every non-obvious choice in `DECISIONS.md`.
 
 **Warning for every phase:** `connectedDebugAndroidTest` uninstalls the app and wipes its data on the phone. Export a JSON backup first, and re-import it after the tests.
+
+---
+
+## Status: built (version 1.1)
+
+All six phases are built, tested (207 unit tests, 46 instrumented tests including the database migrations) and committed. Differences from the plan above, all agreed in the chat or found while building:
+
+- **Long press** on a Home card edits the start of that tracker's running timer (the tracker screen also has an "Edit start" button). Added at your request.
+- **Zero minutes shows "0m"**, not "<1m".
+- **Backup format 2** was introduced in phase 1 (without groups) and extended in phase 3 (with stopwatch fields). Format 1 files still import; `REPLACED` in an old file is read as `ARCHIVED`.
+- **Timer screens carry a token** so each opening gets a fresh view model.
+- **The three-dot icon is drawn** with a Canvas instead of an icon library.
+- **Debug builds** pin kotlinx-serialization 1.8.1 so `room-testing` works. Release builds are untouched.
+- The details of every choice are in `DECISIONS.md` ("MVP 2, Phase 1" to "Phase 6").

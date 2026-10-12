@@ -63,7 +63,7 @@ class TimerTest {
     }
 
     @Test fun formatMinutes_noTrailingZeros() {
-        assertEquals("<1m", formatMinutes(0))
+        assertEquals("0m", formatMinutes(0))
         assertEquals("1m", formatMinutes(1))
         assertEquals("15m", formatMinutes(15))
         assertEquals("59m", formatMinutes(59))

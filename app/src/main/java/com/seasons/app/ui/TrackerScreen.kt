@@ -359,7 +359,10 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
         when (tabs[index]) {
             "Daily" -> Column {
                 BarChart(ui.charts.daily, color, describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit))
-                ui.charts.dailyTime?.let { TimeStrip(it) }
+                ui.charts.dailyTime?.let {
+                    Spacer(Modifier.height(14.dp))
+                    TimeStrip(it)
+                }
             }
             "Weekly" -> BarChart(ui.charts.weekly, color, describeBarChart("Weekly chart, last 11 weeks", ui.charts.weekly, ui.tracker.unit))
             "Season" -> {
