@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -101,92 +103,129 @@ fun ChartTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 
 // ---------- Bar chart (Daily and Weekly) ----------
 
+/** Room on the left for the time chart's axis labels. Both Daily charts use it, so the days line up. */
+val ChartLeftPad = 40.dp
+
 @Composable
 fun BarChart(
     model: BarChartModel,
     color: Color,
     description: String,
     modifier: Modifier = Modifier,
-    /** Stopwatch minutes drawn as a line over the bars, or null. */
-    time: TimeStripModel? = null,
+    /** Empty space on the left. With [showAxis] it holds the axis labels, and it lines up with the time chart. */
+    leftPad: Dp = 0.dp,
+    /** A y axis on the left: 0, half and a round maximum. The bars use that round maximum as their top. */
+    showAxis: Boolean = false,
 ) {
     val measurer = rememberTextMeasurer()
     Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
+        val leftPx = leftPad.toPx()
         val rightPad = 44.dp.toPx()
         val topPad = 20.dp.toPx()
         val bottomPad = 22.dp.toPx()
-        val plotW = size.width - rightPad
+        val plotW = size.width - rightPad - leftPx
         val plotH = size.height - topPad - bottomPad
         val n = model.bars.size
         val slot = plotW / n
         val barW = slot * 0.62f
-        fun y(v: Double) = topPad + plotH * (1f - (v / model.maxY).toFloat())
+        val scaleMax = if (showAxis) niceAmountMax(model.maxY) else model.maxY
+        fun y(v: Double) = topPad + plotH * (1f - (v / scaleMax).toFloat())
         val baseY = y(0.0)
 
-        // Band stripe: steps as the band changes. Each bar gets its own slice.
-        model.bars.forEachIndexed { i, bar ->
-            if (bar.lower != null && bar.upper != null) {
-                val top = y(bar.upper)
-                val bottom = y(bar.lower)
-                drawRect(Grey3, Offset(i * slot, top), Size(slot + 1f, maxOf(bottom - top, 2.dp.toPx()))) // +1px hides seams
+        if (showAxis) {
+            amountAxisTicks(scaleMax).forEach { t ->
+                label(measurer, formatAmount(t), Grey1, leftPx - 6.dp.toPx(), y(t) - 7.dp.toPx(), Anchor.END)
             }
         }
 
-        // Bars, always from zero.
-        model.bars.forEachIndexed { i, bar ->
-            if (bar.value > 0.0) {
-                val top = y(bar.value)
-                drawRect(
-                    if (bar.dim) Grey2 else color,
-                    Offset(i * slot + (slot - barW) / 2f, top),
-                    Size(barW, baseY - top),
-                )
+        translate(left = leftPx) {
+            // Band stripe: steps as the band changes. Each bar gets its own slice.
+            model.bars.forEachIndexed { i, bar ->
+                if (bar.lower != null && bar.upper != null) {
+                    val top = y(bar.upper)
+                    val bottom = y(bar.lower)
+                    drawRect(Grey3, Offset(i * slot, top), Size(slot + 1f, maxOf(bottom - top, 2.dp.toPx()))) // +1px hides seams
+                }
             }
-        }
-        drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
 
-        // Time line over the bars. Minutes are a different unit, so the line has its own hidden scale (zero at the
-        // baseline, longest day at the top) and key points are labeled directly. It breaks on days without time,
-        // because "no stopwatch" is not the same as "zero minutes".
-        if (time != null) {
-            fun ty(m: Long) = topPad + plotH * (1f - m.toFloat() / time.maxMinutes.toFloat())
-            fun cx(i: Int) = i * slot + slot / 2f
-            val halo = 5.dp.toPx()
-            val line = 2.dp.toPx()
-            for (pass in 0..1) { // dark halo first, so the line stays readable over a bar of any color
-                val c = if (pass == 0) AppBackground else TextMain
-                val w = if (pass == 0) halo else line
-                for (i in 0 until n - 1) {
-                    if (time.minutes[i] > 0L && time.minutes[i + 1] > 0L) {
-                        drawLine(c, Offset(cx(i), ty(time.minutes[i])), Offset(cx(i + 1), ty(time.minutes[i + 1])), w, StrokeCap.Round)
-                    }
-                }
-                time.minutes.forEachIndexed { i, m ->
-                    if (m > 0L) drawCircle(c, if (pass == 0) 4.5.dp.toPx() else 3.dp.toPx(), Offset(cx(i), ty(m)))
+            // Bars, always from zero.
+            model.bars.forEachIndexed { i, bar ->
+                if (bar.value > 0.0) {
+                    val top = y(bar.value)
+                    drawRect(
+                        if (bar.dim) Grey2 else color,
+                        Offset(i * slot + (slot - barW) / 2f, top),
+                        Size(barW, baseY - top),
+                    )
                 }
             }
-            timeLabelIndices(time).forEach { i ->
-                val py = ty(time.minutes[i])
+            drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
+
+            // Only the last bar (today / this week) gets its value.
+            val last = model.bars.last()
+            val lastCenter = (n - 1) * slot + slot / 2f
+            label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
+
+            // Band range, labeled directly at the right end of the stripe.
+            if (model.bandLabel != null && last.lower != null && last.upper != null) {
+                label(measurer, model.bandLabel, Grey1, plotW + 6.dp.toPx(), y((last.lower + last.upper) / 2.0) - 7.dp.toPx())
+            }
+
+            label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
+            label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
+        }
+    }
+}
+
+/**
+ * Stopwatch time as a line, in its own chart above the bars. Minutes are a different unit from the bars, so it has its
+ * own y axis on the left (0 to a round maximum) and shares only the days. No gridlines, no legend. One continuous line
+ * runs through the days that have time; a dot marks each real day, so a stretch with no dots is a stretch with no
+ * stopwatch data (the line there is only a join). Only today's value is labeled.
+ */
+@Composable
+fun TimeChart(model: TimeStripModel, modifier: Modifier = Modifier, leftPad: Dp = ChartLeftPad) {
+    val measurer = rememberTextMeasurer()
+    Canvas(modifier.fillMaxWidth().height(124.dp).semantics { contentDescription = describeTimeStrip(model) }) {
+        val leftPx = leftPad.toPx()
+        val rightPad = 44.dp.toPx() // same as the bar chart, so the days line up
+        val topPad = 36.dp.toPx() // room for the caption, the top axis label and today's value
+        val bottomPad = 4.dp.toPx()
+        val plotW = size.width - rightPad - leftPx
+        val plotH = size.height - topPad - bottomPad
+        val n = model.minutes.size
+        val slot = plotW / n
+        fun ty(m: Long) = topPad + plotH * (1f - m.toFloat() / model.axisMax.toFloat())
+        fun cx(i: Int) = i * slot + slot / 2f
+        val baseY = ty(0)
+
+        label(measurer, "Time", Grey1, 0f, 0f)
+        // Axis labels, right-aligned against the plot. 0, half and the maximum.
+        timeAxisTicks(model.axisMax).forEach { t ->
+            label(measurer, formatMinutes(t), Grey1, leftPx - 6.dp.toPx(), ty(t) - 7.dp.toPx(), Anchor.END)
+        }
+
+        translate(left = leftPx) {
+            drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
+            val days = timedDays(model)
+            if (days.size > 1) {
+                val path = Path()
+                days.forEachIndexed { k, i ->
+                    if (k == 0) path.moveTo(cx(i), ty(model.minutes[i])) else path.lineTo(cx(i), ty(model.minutes[i]))
+                }
+                drawPath(path, TextMain, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            days.forEach { i -> drawCircle(TextMain, 3.dp.toPx(), Offset(cx(i), ty(model.minutes[i]))) }
+            val last = model.minutes.last()
+            if (last > 0L) {
+                val py = ty(last)
                 val above = py - 18.dp.toPx()
                 label(
-                    measurer, formatMinutes(time.minutes[i]), TextMain, cx(i).coerceIn(14.dp.toPx(), plotW - 14.dp.toPx()),
-                    if (above < 0f) py + 8.dp.toPx() else above, Anchor.CENTER, backdrop = AppBackground,
+                    measurer, formatMinutes(last), TextMain, cx(n - 1),
+                    if (above < 0f) py + 8.dp.toPx() else above, Anchor.CENTER, bold = true,
                 )
             }
         }
-
-        // Only the last bar (today / this week) gets its value.
-        val last = model.bars.last()
-        val lastCenter = (n - 1) * slot + slot / 2f
-        label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
-
-        // Band range, labeled directly at the right end of the stripe.
-        if (model.bandLabel != null && last.lower != null && last.upper != null) {
-            label(measurer, model.bandLabel, Grey1, plotW + 6.dp.toPx(), y((last.lower + last.upper) / 2.0) - 7.dp.toPx())
-        }
-
-        label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
-        label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
     }
 }
 

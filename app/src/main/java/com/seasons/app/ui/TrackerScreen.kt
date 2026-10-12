@@ -50,7 +50,8 @@ import com.seasons.app.ui.charts.OnTrackChart
 import com.seasons.app.ui.charts.describeBarChart
 import com.seasons.app.ui.charts.describeOnTrack
 import com.seasons.app.ui.charts.SeasonHeatmap
-import com.seasons.app.ui.charts.describeTimeStrip
+import com.seasons.app.ui.charts.ChartLeftPad
+import com.seasons.app.ui.charts.TimeChart
 import java.time.LocalDate
 
 /** Header, status line, today/quick-log, streaks, history. Charts come in Phase 4. */
@@ -357,12 +358,20 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
         ChartTabs(tabs, index, onSelect = { selected = it })
         Spacer(Modifier.height(12.dp))
         when (tabs[index]) {
-            "Daily" -> BarChart(
-                ui.charts.daily, color,
-                describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit) +
-                    (ui.charts.dailyTime?.let { " " + describeTimeStrip(it) } ?: ""),
-                time = ui.charts.dailyTime,
-            )
+            "Daily" -> Column {
+                val time = ui.charts.dailyTime
+                // Time sits above the bars in its own chart. Each chart has its own y axis on the left and they share the days.
+                if (time != null) {
+                    TimeChart(time)
+                    Spacer(Modifier.height(8.dp))
+                }
+                BarChart(
+                    ui.charts.daily, color,
+                    describeBarChart("Daily chart, last 14 days", ui.charts.daily, ui.tracker.unit),
+                    leftPad = ChartLeftPad,
+                    showAxis = true,
+                )
+            }
             "Weekly" -> BarChart(ui.charts.weekly, color, describeBarChart("Weekly chart, last 11 weeks", ui.charts.weekly, ui.tracker.unit))
             "Season" -> {
                 val season = ui.charts.season

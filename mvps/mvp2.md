@@ -217,3 +217,4 @@ All six phases are built, tested (207 unit tests, 46 instrumented tests includin
 - **Debug builds** pin kotlinx-serialization 1.8.1 so `room-testing` works. Release builds are untouched.
 - The details of every choice are in `DECISIONS.md` ("MVP 2, Phase 1" to "Phase 6").
 - **Section 5 changed after phase 6:** the time is now a **line over the Daily bars** (book option: label the points directly, no second axis), not a separate strip. See `DECISIONS.md`.
+- **Section 5 changed again:** time is a continuous line chart **above** the Daily bars, with its own left y axis (0 to a round maximum). The Daily bars also got a left y axis. Both share the 14 days. See `DECISIONS.md`.
