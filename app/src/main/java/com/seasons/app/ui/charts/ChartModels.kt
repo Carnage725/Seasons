@@ -1,18 +1,15 @@
 package com.seasons.app.ui.charts
 
 import com.seasons.app.data.BandPeriod
-import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Tracker
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dayMet
-import com.seasons.app.domain.formatMinutes
 import com.seasons.app.domain.heatmapColumns
 import com.seasons.app.domain.seasonDay
 import com.seasons.app.domain.seasonNumber
 import com.seasons.app.domain.seasonStartDate
 import com.seasons.app.ui.formatAmount
-import com.seasons.app.ui.minutesByDay
 import java.math.BigDecimal
 import java.math.MathContext
 import java.time.DayOfWeek
@@ -74,21 +71,6 @@ fun buildDailyChart(
     )
 }
 
-/** Stopwatch minutes per day for the last days, drawn as a line chart above the Daily bars. */
-data class TimeStripModel(val minutes: List<Long>, val maxMinutes: Long) {
-    /** Top of the time axis: a round number at or above the longest day. */
-    val axisMax: Long get() = niceMinutesMax(maxMinutes)
-}
-
-private val NICE_MINUTES = listOf(10L, 20L, 30L, 40L, 60L, 90L, 120L, 180L, 240L, 300L, 360L, 480L, 600L, 720L)
-
-/** The smallest round axis maximum (10m, 20m, 30m, 40m, 1h, 1h 30m, 2h ...) at or above [maxMinutes]. */
-fun niceMinutesMax(maxMinutes: Long): Long =
-    NICE_MINUTES.firstOrNull { it >= maxMinutes } ?: (((maxMinutes + 119L) / 120L) * 120L)
-
-/** Indices of the days that have stopwatch time, oldest first. The time line runs through exactly these. */
-fun timedDays(model: TimeStripModel): List<Int> = model.minutes.indices.filter { model.minutes[it] > 0L }
-
 private val NICE_MANTISSAS = listOf(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0)
 
 /** The smallest round axis maximum (1, 2, 3, 4, 5, 6, 8, 10, 20, 30 ... and the same below 1) at or above [value]. */
@@ -101,17 +83,6 @@ fun niceAmountMax(value: Double): Double {
 
 /** Axis labels for the amount bars: 0, half, and the maximum. */
 fun amountAxisTicks(axisMax: Double): List<Double> = listOf(0.0, axisMax / 2.0, axisMax)
-
-/** Axis labels: 0, half, and the maximum. */
-fun timeAxisTicks(axisMax: Long): List<Long> = listOf(0L, axisMax / 2L, axisMax)
-
-/** Null when none of the last [days] days has stopwatch time, so a tracker without time looks as it always did. */
-fun buildTimeStrip(logs: List<LogEntry>, today: LocalDate, days: Int = 14): TimeStripModel? {
-    val perDay = logs.minutesByDay()
-    val minutes = (days - 1 downTo 0).map { perDay[today.minusDays(it.toLong())] ?: 0L }
-    val max = minutes.max()
-    return if (max <= 0L) null else TimeStripModel(minutes, max)
-}
 
 /** Last [weeks] Monday-start weeks ending with the current one. WEEKLY band trackers plot active days. */
 fun buildWeeklyChart(
@@ -286,9 +257,6 @@ fun describeBarChart(title: String, model: BarChartModel, unit: String): String 
     model.bandLabel?.let { append(" Band ").append(it).append('.') }
     append(" Highest bar ").append(formatAmount(model.bars.maxOf { it.value })).append('.')
 }
-
-fun describeTimeStrip(model: TimeStripModel): String =
-    "Time chart over the same days. Today ${formatMinutes(model.minutes.last())}. Longest day ${formatMinutes(model.maxMinutes)}."
 
 fun describeSeason(model: SeasonModel): String =
     "Season ${model.number} heatmap, day ${model.dayOfSeason} of ${model.length}. " +

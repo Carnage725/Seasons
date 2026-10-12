@@ -15,15 +15,6 @@ sealed interface Screen {
     data class TrackerDetail(val trackerId: Long) : Screen
     data object Trophies : Screen
     data object Archive : Screen
-    /**
-     * The three timer screens carry a token so each opening gets a fresh view model (view models are kept by key,
-     * and an old one would show old times).
-     */
-    /** The running timer was stopped: set start, end and amount, then save or discard. */
-    data class TimerStop(val token: Long = System.nanoTime()) : Screen
-    /** Fix the start of the running timer. */
-    data class TimerEditRunning(val token: Long = System.nanoTime()) : Screen
-    data class TimerEditEntry(val logId: Long, val token: Long = System.nanoTime()) : Screen
     data object Settings : Screen
     data object SeasonsHistory : Screen
     data class SeasonSummary(val summaryId: Long) : Screen

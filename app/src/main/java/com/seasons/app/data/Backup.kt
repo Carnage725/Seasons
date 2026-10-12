@@ -1,14 +1,11 @@
 package com.seasons.app.data
 
-import com.seasons.app.domain.elapsedMinutes
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 // Backup file (JSON) and log export (CSV). Pure apart from org.json, so every rule is unit-tested.
 
@@ -21,8 +18,6 @@ data class BackupData(
     val bands: List<BandHistory>,
     val logs: List<LogEntry>,
     val summaries: List<SeasonSummary>,
-    /** Format 2: the timer that was running when the backup was made, or null. */
-    val runningTimer: RunningTimer? = null,
 )
 
 /** Thrown for a file that is not a usable backup. The message is shown to the user as is. */
@@ -85,16 +80,10 @@ fun BackupData.toJson(exportedAt: Instant): String {
                     .put("trackerId", it.trackerId)
                     .put("date", it.date.toString())
                     .put("amount", it.amount)
-                    .put("createdAt", it.createdAt)
-                    .putNullable("startTime", it.startTime)
-                    .putNullable("endTime", it.endTime),
+                    .put("createdAt", it.createdAt),
             )
         }
     })
-    root.put(
-        "runningTimer",
-        runningTimer?.let { JSONObject().put("trackerId", it.trackerId).put("startTime", it.startTime) } ?: JSONObject.NULL,
-    )
     root.put("summaries", JSONArray().also { arr ->
         summaries.forEach {
             arr.put(
@@ -117,14 +106,14 @@ fun BackupData.toJson(exportedAt: Instant): String {
  * Reads and fully checks a backup. Nothing is trusted: a file that passes this can be written to the database
  * without breaking a rule the app relies on. Throws [BackupException] with a readable reason otherwise.
  */
-fun parseBackup(text: String, now: Long = System.currentTimeMillis()): BackupData {
+fun parseBackup(text: String): BackupData {
     val root = try {
         JSONObject(text)
     } catch (e: JSONException) {
         throw BackupException("This file is not valid JSON.")
     }
     try {
-        return parseRoot(root, now)
+        return parseRoot(root)
     } catch (e: BackupException) {
         throw e
     } catch (e: JSONException) {
@@ -162,7 +151,7 @@ private fun requireUniqueIds(what: String, ids: List<Long>) {
     if (ids.toSet().size != ids.size) fail("Two ${what}s share the same id.")
 }
 
-private fun parseRoot(root: JSONObject, now: Long): BackupData {
+private fun parseRoot(root: JSONObject): BackupData {
     if (root.optString("app") != BACKUP_APP_NAME) fail("This is not a Seasons backup.")
     val version = root.optInt("version", 0)
     if (version > BACKUP_VERSION) fail("This backup was made by a newer version of the app (format $version).")
@@ -231,29 +220,17 @@ private fun parseRoot(root: JSONObject, now: Long): BackupData {
             trackerId = it.getLong("trackerId"),
             date = it.dateValue("date"),
             amount = it.getDouble("amount"),
+            // Older files may also hold "startTime" and "endTime" (the stopwatch, now gone). They are ignored.
             createdAt = it.getLong("createdAt"),
-            // Format 1 files have no time fields: every entry is a plain one.
-            startTime = it.nullableLong("startTime"),
-            endTime = it.nullableLong("endTime"),
         )
     }
     requireUniqueIds("log entry", logs.map { it.id })
     logs.forEach { l ->
         if (l.trackerId !in trackerIds) fail("A log entry points to a tracker that is not in the file.")
         if (!l.amount.isFinite() || l.amount <= 0.0) fail("A log entry has an amount that is not positive.")
-        if ((l.startTime == null) != (l.endTime == null)) fail("A log entry has a start time without an end time, or the other way round.")
-        if (l.startTime != null && l.endTime != null && l.endTime <= l.startTime) fail("A log entry ends before it starts.")
     }
 
-    val runningTimer = if (!root.has("runningTimer") || root.isNull("runningTimer")) {
-        null
-    } else {
-        val o = root.getJSONObject("runningTimer")
-        RunningTimer(trackerId = o.getLong("trackerId"), startTime = o.getLong("startTime")).also { t ->
-            if (t.trackerId !in trackerIds) fail("The running timer points to a tracker that is not in the file.")
-            if (t.startTime > now) fail("The running timer starts in the future.")
-        }
-    }
+    // Older files may also hold "runningTimer" (the stopwatch, now gone). It is ignored.
 
     val summaries = root.getJSONArray("summaries").objects {
         SeasonSummary(
@@ -278,7 +255,7 @@ private fun parseRoot(root: JSONObject, now: Long): BackupData {
     }
     if (summaries.map { it.startDate }.toSet().size != summaries.size) fail("Two season summaries start on the same date.")
 
-    return BackupData(settings, trackers, bands, logs, summaries, runningTimer)
+    return BackupData(settings, trackers, bands, logs, summaries)
 }
 
 // ---------- CSV ----------
@@ -294,29 +271,16 @@ internal fun csvField(raw: String): String {
 
 private fun plainNumber(value: Double): String = BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
 
-/** Local date and time to the minute, for the CSV: 2026-10-05T13:19. */
-private fun csvTime(millis: Long, zone: ZoneId): String =
-    Instant.ofEpochMilli(millis).atZone(zone).toLocalDateTime().truncatedTo(ChronoUnit.MINUTES).toString()
-
-/**
- * One row per log entry, oldest first. Lines end with CRLF, as RFC 4180 says.
- * start, end and minutes are empty for plain entries (no stopwatch). Minutes are whole, rounded down.
- */
-fun logsToCsv(trackers: List<Tracker>, logs: List<LogEntry>, zone: ZoneId = ZoneId.systemDefault()): String {
+/** One row per log entry, oldest first. Lines end with CRLF, as RFC 4180 says. */
+fun logsToCsv(trackers: List<Tracker>, logs: List<LogEntry>): String {
     val trackerById = trackers.associateBy { it.id }
-    val sb = StringBuilder("date,tracker,amount,unit,start,end,minutes,logged_at\r\n")
+    val sb = StringBuilder("date,tracker,amount,unit,logged_at\r\n")
     logs.sortedWith(compareBy({ it.date }, { it.createdAt }, { it.id })).forEach { l ->
         val t = trackerById[l.trackerId] ?: return@forEach
-        val start = l.startTime
-        val end = l.endTime
-        val timed = start != null && end != null
         sb.append(l.date.toString()).append(',')
             .append(csvField(t.name)).append(',')
             .append(plainNumber(l.amount)).append(',')
             .append(csvField(t.unit)).append(',')
-            .append(if (timed) csvTime(start!!, zone) else "").append(',')
-            .append(if (timed) csvTime(end!!, zone) else "").append(',')
-            .append(if (timed) elapsedMinutes(start!!, end!!).toString() else "").append(',')
             .append(Instant.ofEpochMilli(l.createdAt).toString())
             .append("\r\n")
     }

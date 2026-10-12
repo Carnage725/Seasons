@@ -88,6 +88,8 @@ Migration plan: **one migration per phase**, DB version 2, 3, 4. Each has an ins
 
 ## 4. Stopwatch with editable start and end times
 
+> **REMOVED after phase 6.** The stopwatch, the Edit time screen and all time data were taken out again (database version 5). This section is kept as history. See the status block at the end and `DECISIONS.md`.
+
 ### 4.1 Behavior
 
 - Every tracker card on Home has a **stopwatch button at the top right**. The tracker screen has the same control. Tap once to start, tap again to stop. Placement of everything else stays as it is.
@@ -160,6 +162,8 @@ Rules:
 
 ## 5. Time on the Daily chart
 
+> **REMOVED after phase 6.** The time chart is gone with the stopwatch. What stays from this section: the Daily bar chart got a left y axis (0, half, a round maximum).
+
 **Book rule (ch. 2, "Secondary y-axis: generally not a good idea"):** different units must not share a second y-axis. Pull the charts apart vertically and share the x-axis, each with its own left axis.
 
 - Data: add `minutesPerDay` to the Daily chart model in `ui/charts/ChartModels.kt` (pure function, unit-tested): for each of the 14 days, the sum of `(endTime - startTime)` of stopwatch entries whose `date` is that day, in minutes.
@@ -218,3 +222,7 @@ All six phases are built, tested (207 unit tests, 46 instrumented tests includin
 - The details of every choice are in `DECISIONS.md` ("MVP 2, Phase 1" to "Phase 6").
 - **Section 5 changed after phase 6:** the time is now a **line over the Daily bars** (book option: label the points directly, no second axis), not a separate strip. See `DECISIONS.md`.
 - **Section 5 changed again:** time is a continuous line chart **above** the Daily bars, with its own left y axis (0 to a round maximum). The Daily bars also got a left y axis. Both share the 14 days. See `DECISIONS.md`.
+
+## Final state (after the stopwatch was removed)
+
+MVP 2 as it stands: **groups removed** (section 1), **archive simplified** (section 2), **three-dot menu icons** (section 3), and a **y axis on the Daily bar chart**. Sections 4 and 5 (stopwatch and time chart) were built, then removed on request. The database is at version 5; amounts and dates were never touched by the removal. 181 unit tests and 35 instrumented tests pass.

@@ -129,22 +129,3 @@ interface SeasonSummaryDao {
     @Insert
     suspend fun insert(summary: SeasonSummary): Long
 }
-
-@Dao
-interface RunningTimerDao {
-    @Query("SELECT * FROM running_timer WHERE id = 1")
-    fun observe(): Flow<RunningTimer?>
-
-    @Query("SELECT * FROM running_timer WHERE id = 1")
-    suspend fun get(): RunningTimer?
-
-    // Fails if a timer already exists, so a second start can never replace the first by accident.
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insert(timer: RunningTimer)
-
-    @Update
-    suspend fun update(timer: RunningTimer)
-
-    @Query("DELETE FROM running_timer")
-    suspend fun deleteAll()
-}

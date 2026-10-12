@@ -3,11 +3,7 @@ package com.seasons.app.data
 import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import com.seasons.app.domain.dateOfEnd
-import com.seasons.app.domain.runningStartError
-import com.seasons.app.domain.timeError
 import java.time.LocalDate
-import java.time.ZoneId
 
 class Repository(private val db: AppDatabase) {
     private val trackers = db.trackerDao()
@@ -15,7 +11,6 @@ class Repository(private val db: AppDatabase) {
     private val logs = db.logDao()
     private val settings = db.settingsDao()
     private val summaries = db.seasonSummaryDao()
-    private val timers = db.runningTimerDao()
 
     suspend fun getTracker(id: Long) = trackers.get(id)
     suspend fun getLog(id: Long) = logs.get(id)
@@ -27,7 +22,6 @@ class Repository(private val db: AppDatabase) {
     fun observeLogs(trackerId: Long) = logs.observeFor(trackerId)
     fun observeAllLogs() = logs.observeAll()
     fun observeSettings() = settings.observe()
-    fun observeRunningTimer() = timers.observe()
     fun observeSeasonSummaries() = summaries.observeAll()
 
     /** Creates the tracker and, if it has a band, its first band row (effective from startDate). */
@@ -59,78 +53,9 @@ class Repository(private val db: AppDatabase) {
     }
 
     suspend fun editLog(entry: LogEntry, newDate: LocalDate, newAmount: Double, today: LocalDate = LocalDate.now()) {
-        require(!entry.isTimed) { "A stopwatch entry is edited with editTimedLog" }
         val tracker = requireNotNull(trackers.get(entry.trackerId)) { "Tracker ${entry.trackerId} not found" }
         validateLog(tracker.startDate, newDate, newAmount, today)
         logs.update(entry.copy(date = newDate, amount = newAmount))
-    }
-
-    // ---------- Stopwatch ----------
-
-    /** Starts the timer for [trackerId]. Returns false, changing nothing, if a timer is already running. */
-    suspend fun startTimer(trackerId: Long, now: Long = System.currentTimeMillis()): Boolean = db.withTransaction {
-        val tracker = requireNotNull(trackers.get(trackerId)) { "Tracker $trackerId not found" }
-        require(tracker.status == TrackerStatus.ACTIVE) { "Only an active tracker can be timed" }
-        if (timers.get() != null) return@withTransaction false
-        timers.insert(RunningTimer(trackerId = trackerId, startTime = now))
-        true
-    }
-
-    /** Fixes the start of the running timer (for a timer started late). Not in the future. */
-    suspend fun editRunningStart(newStart: Long, now: Long = System.currentTimeMillis()) = db.withTransaction {
-        val timer = checkNotNull(timers.get()) { "No timer is running" }
-        runningStartError(newStart, now)?.let { throw IllegalArgumentException(it) }
-        timers.update(timer.copy(startTime = newStart))
-    }
-
-    /** Throws the running timer away. Nothing is logged. */
-    suspend fun discardTimer() = timers.deleteAll()
-
-    /**
-     * Stops the timer and logs it: one entry with [amount], [startTime] and [endTime], counted for the local date of
-     * the end time. The entry and the timer removal happen in one transaction. Returns the new log id.
-     */
-    suspend fun finishTimer(
-        startTime: Long,
-        endTime: Long,
-        amount: Double,
-        now: Long = System.currentTimeMillis(),
-        zone: ZoneId = ZoneId.systemDefault(),
-    ): Long = db.withTransaction {
-        val timer = checkNotNull(timers.get()) { "No timer is running" }
-        val tracker = requireNotNull(trackers.get(timer.trackerId)) { "Tracker ${timer.trackerId} not found" }
-        val date = validateTimed(tracker.startDate, startTime, endTime, amount, now, zone)
-        val id = logs.insert(
-            LogEntry(
-                trackerId = tracker.id, date = date, amount = amount, createdAt = now,
-                startTime = startTime, endTime = endTime,
-            ),
-        )
-        timers.deleteAll()
-        id
-    }
-
-    /** Edits a stopwatch entry: any start, end and amount, within the same rules. The date follows the end time. */
-    suspend fun editTimedLog(
-        entry: LogEntry,
-        startTime: Long,
-        endTime: Long,
-        amount: Double,
-        now: Long = System.currentTimeMillis(),
-        zone: ZoneId = ZoneId.systemDefault(),
-    ) {
-        require(entry.isTimed) { "Only a stopwatch entry has times" }
-        val tracker = requireNotNull(trackers.get(entry.trackerId)) { "Tracker ${entry.trackerId} not found" }
-        val date = validateTimed(tracker.startDate, startTime, endTime, amount, now, zone)
-        logs.update(entry.copy(date = date, amount = amount, startTime = startTime, endTime = endTime))
-    }
-
-    private fun validateTimed(trackerStart: LocalDate, start: Long, end: Long, amount: Double, now: Long, zone: ZoneId): LocalDate {
-        require(amount > 0) { "Amount must be positive" }
-        timeError(start, end, now)?.let { throw IllegalArgumentException(it) }
-        val date = dateOfEnd(end, zone)
-        require(!date.isBefore(trackerStart)) { "Date is before the tracker start date" }
-        return date
     }
 
     suspend fun deleteLog(entry: LogEntry) = logs.delete(entry)
@@ -164,7 +89,6 @@ class Repository(private val db: AppDatabase) {
             bands = bands.getAll(),
             logs = logs.getAll(),
             summaries = summaries.getAll(),
-            runningTimer = timers.get(),
         )
     }
 
@@ -174,7 +98,6 @@ class Repository(private val db: AppDatabase) {
      */
     suspend fun replaceAll(data: BackupData) = db.withTransaction {
         // Children first, so no foreign key is ever broken on the way.
-        timers.deleteAll()
         logs.deleteAll()
         bands.deleteAll()
         trackers.deleteAll()
@@ -185,7 +108,6 @@ class Repository(private val db: AppDatabase) {
         bands.insertAll(data.bands)
         logs.insertAll(data.logs)
         summaries.insertAll(data.summaries)
-        data.runningTimer?.let { timers.insert(it) }
         data.settings?.let { settings.upsert(it) }
     }
 

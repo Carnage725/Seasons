@@ -10,9 +10,7 @@ import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChartModel
 import com.seasons.app.ui.charts.OnTrackModel
 import com.seasons.app.ui.charts.SeasonModel
-import com.seasons.app.ui.charts.TimeStripModel
 import com.seasons.app.ui.charts.buildDailyChart
-import com.seasons.app.ui.charts.buildTimeStrip
 import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
@@ -33,15 +31,11 @@ data class TrackerUiState(
     /** The band in effect today, to prefill "Change band". */
     val band: Band?,
     val charts: ChartsData,
-    /** Stopwatch totals, or null when the tracker has no stopwatch entries. */
-    val timeLine: String?,
 )
 
 /** Null parts: the season chart needs settings (loading), the On track chart is for goals only. */
 data class ChartsData(
     val daily: BarChartModel,
-    /** Stopwatch minutes under the Daily chart, or null when there are none. */
-    val dailyTime: TimeStripModel?,
     val weekly: BarChartModel,
     val season: SeasonModel?,
     val onTrack: OnTrackModel?,
@@ -67,10 +61,8 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                 logs = logs,
                 summary = buildTrackerSummary(tracker, logs, bandList, today),
                 band = bandOn(bandList, today),
-                timeLine = buildTimeLine(logs, today),
                 charts = ChartsData(
                     daily = buildDailyChart(tracker, totals, bandList, today),
-                    dailyTime = buildTimeStrip(logs, today),
                     weekly = buildWeeklyChart(tracker, totals, bandList, today),
                     season = settings?.let {
                         buildSeasonModel(
@@ -83,14 +75,6 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    /** The running timer (any tracker), or null. */
-    val timer: StateFlow<TimerInfo?> = repo.observeTimerInfo()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    fun startTimer() {
-        viewModelScope.launch { repo.startTimer(trackerId) }
-    }
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error

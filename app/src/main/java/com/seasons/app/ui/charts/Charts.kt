@@ -48,7 +48,6 @@ import com.seasons.app.ui.Grey1
 import com.seasons.app.ui.Grey2
 import com.seasons.app.ui.Grey3
 import com.seasons.app.ui.TextMain
-import com.seasons.app.domain.formatMinutes
 import com.seasons.app.ui.formatAmount
 import java.time.LocalDate
 
@@ -103,7 +102,7 @@ fun ChartTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 
 // ---------- Bar chart (Daily and Weekly) ----------
 
-/** Room on the left for the time chart's axis labels. Both Daily charts use it, so the days line up. */
+/** Room on the left for the y axis labels of the Daily bar chart. */
 val ChartLeftPad = 40.dp
 
 @Composable
@@ -112,7 +111,7 @@ fun BarChart(
     color: Color,
     description: String,
     modifier: Modifier = Modifier,
-    /** Empty space on the left. With [showAxis] it holds the axis labels, and it lines up with the time chart. */
+    /** Empty space on the left. With [showAxis] it holds the axis labels. */
     leftPad: Dp = 0.dp,
     /** A y axis on the left: 0, half and a round maximum. The bars use that round maximum as their top. */
     showAxis: Boolean = false,
@@ -173,58 +172,6 @@ fun BarChart(
 
             label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
             label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
-        }
-    }
-}
-
-/**
- * Stopwatch time as a line, in its own chart above the bars. Minutes are a different unit from the bars, so it has its
- * own y axis on the left (0 to a round maximum) and shares only the days. No gridlines, no legend. One continuous line
- * runs through the days that have time; a dot marks each real day, so a stretch with no dots is a stretch with no
- * stopwatch data (the line there is only a join). Only today's value is labeled.
- */
-@Composable
-fun TimeChart(model: TimeStripModel, modifier: Modifier = Modifier, leftPad: Dp = ChartLeftPad) {
-    val measurer = rememberTextMeasurer()
-    Canvas(modifier.fillMaxWidth().height(124.dp).semantics { contentDescription = describeTimeStrip(model) }) {
-        val leftPx = leftPad.toPx()
-        val rightPad = 44.dp.toPx() // same as the bar chart, so the days line up
-        val topPad = 36.dp.toPx() // room for the caption, the top axis label and today's value
-        val bottomPad = 4.dp.toPx()
-        val plotW = size.width - rightPad - leftPx
-        val plotH = size.height - topPad - bottomPad
-        val n = model.minutes.size
-        val slot = plotW / n
-        fun ty(m: Long) = topPad + plotH * (1f - m.toFloat() / model.axisMax.toFloat())
-        fun cx(i: Int) = i * slot + slot / 2f
-        val baseY = ty(0)
-
-        label(measurer, "Time", Grey1, 0f, 0f)
-        // Axis labels, right-aligned against the plot. 0, half and the maximum.
-        timeAxisTicks(model.axisMax).forEach { t ->
-            label(measurer, formatMinutes(t), Grey1, leftPx - 6.dp.toPx(), ty(t) - 7.dp.toPx(), Anchor.END)
-        }
-
-        translate(left = leftPx) {
-            drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
-            val days = timedDays(model)
-            if (days.size > 1) {
-                val path = Path()
-                days.forEachIndexed { k, i ->
-                    if (k == 0) path.moveTo(cx(i), ty(model.minutes[i])) else path.lineTo(cx(i), ty(model.minutes[i]))
-                }
-                drawPath(path, TextMain, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            }
-            days.forEach { i -> drawCircle(TextMain, 3.dp.toPx(), Offset(cx(i), ty(model.minutes[i]))) }
-            val last = model.minutes.last()
-            if (last > 0L) {
-                val py = ty(last)
-                val above = py - 18.dp.toPx()
-                label(
-                    measurer, formatMinutes(last), TextMain, cx(n - 1),
-                    if (above < 0f) py + 8.dp.toPx() else above, Anchor.CENTER, bold = true,
-                )
-            }
         }
     }
 }

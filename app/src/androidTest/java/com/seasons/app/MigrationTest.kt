@@ -10,6 +10,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.seasons.app.data.AppDatabase
 import com.seasons.app.data.MIGRATION_2_3
 import com.seasons.app.data.Migration1To2
+import com.seasons.app.data.Migration4To5
 import com.seasons.app.data.Repository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -29,7 +30,7 @@ class MigrationTest {
     val helper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),
         AppDatabase::class.java,
-        listOf(Migration1To2()),
+        listOf(Migration1To2(), Migration4To5()),
         FrameworkSQLiteOpenHelperFactory(),
     )
 
@@ -178,23 +179,55 @@ class MigrationTest {
         db.close()
     }
 
-    @Test fun v1ToV4_fullChain_opensWithTheAppsBuilder_andStopwatchWorks() = runBlocking {
+    @Test fun v4ToV5_dropsTimeColumnsAndTimerTable_keepsEveryAmount() {
+        helper.createDatabase(dbName, 4).apply {
+            execSQL(
+                "INSERT INTO trackers (id, name, unit, type, color, target, deadline, bandPeriod, startDate, status, completedDate, sortOrder) VALUES " +
+                    "(1, 'Mom Test', 'pages', 'GOAL', 11, 200.0, NULL, 'DAILY', 20300, 'ACTIVE', NULL, 0)",
+            )
+            execSQL("INSERT INTO band_history (id, trackerId, effectiveFrom, lower, upper) VALUES (1, 1, 20300, 3.0, 6.0)")
+            execSQL(
+                "INSERT INTO log_entries (id, trackerId, date, amount, createdAt, startTime, endTime) VALUES " +
+                    "(1, 1, 20330, 12.5, 1000, 1700000000000, 1700000900000), (2, 1, 20331, 4.0, 2000, NULL, NULL)",
+            )
+            execSQL("INSERT INTO running_timer (id, trackerId, startTime) VALUES (1, 1, 1700000000000)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 5, true)
+
+        assertEquals(1, count(db, "trackers"))
+        assertEquals(1, count(db, "band_history"))
+        assertEquals(2, count(db, "log_entries"))
+        db.query("SELECT sum(amount) FROM log_entries").use { it.moveToFirst(); assertEquals(16.5, it.getDouble(0), 0.0) }
+        db.query("SELECT date, amount, createdAt FROM log_entries WHERE id = 1").use {
+            it.moveToFirst()
+            assertEquals(20330L, it.getLong(0))
+            assertEquals(12.5, it.getDouble(1), 0.0)
+            assertEquals(1000L, it.getLong(2))
+        }
+        db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'running_timer'").use { assertEquals(0, it.count) }
+        db.query("SELECT name FROM pragma_table_info('log_entries') WHERE name IN ('startTime', 'endTime')").use { assertEquals(0, it.count) }
+        db.query("PRAGMA foreign_key_check").use { assertEquals(0, it.count) }
+        db.close()
+    }
+
+    @Test fun v1ToV5_fullChain_opensWithTheAppsBuilder() = runBlocking {
         helper.createDatabase(dbName, 1).apply {
             execSQL("INSERT INTO groups (id, name, color, sortOrder) VALUES (1, 'Study', 5, 0)")
             execSQL(
                 "INSERT INTO trackers (id, name, unit, type, color, groupId, target, deadline, bandPeriod, startDate, status, completedDate, sortOrder) VALUES " +
-                    "(1, 'Mom Test', 'pages', 'GOAL', 11, 1, 200.0, NULL, 'NONE', 20300, 'ACTIVE', NULL, 0)",
+                    "(1, 'Restarted', 'x', 'ONGOING', 1, 1, NULL, NULL, 'DAILY', 20300, 'REPLACED', NULL, 0)",
             )
-            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 12.5, 1000)")
+            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 2.0, 1)")
             close()
         }
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbName).addMigrations(MIGRATION_2_3).build()
         val repo = Repository(db)
-        assertEquals(12.5, repo.observeLogs(1).first().single().amount, 0.0)
-        val now = java.time.LocalDate.ofEpochDay(20331).atTime(12, 0).atZone(java.time.ZoneId.of("UTC")).toInstant().toEpochMilli()
-        assertEquals(true, repo.startTimer(1, now - 600_000))
-        repo.finishTimer(now - 600_000, now, 2.0, now, java.time.ZoneId.of("UTC"))
+        assertEquals("ARCHIVED", repo.getTracker(1)!!.status.name)
+        assertEquals(2.0, repo.observeLogs(1).first().single().amount, 0.0)
+        repo.addLog(1, java.time.LocalDate.ofEpochDay(20331), 3.0, java.time.LocalDate.ofEpochDay(20331))
         assertEquals(2, repo.observeLogs(1).first().size)
         db.close()
     }
