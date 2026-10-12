@@ -31,6 +31,8 @@ data class TrackerUiState(
     /** The band in effect today, to prefill "Change band". */
     val band: Band?,
     val charts: ChartsData,
+    /** Stopwatch totals, or null when the tracker has no stopwatch entries. */
+    val timeLine: String?,
 )
 
 /** Null parts: the season chart needs settings (loading), the On track chart is for goals only. */
@@ -61,6 +63,7 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                 logs = logs,
                 summary = buildTrackerSummary(tracker, logs, bandList, today),
                 band = bandOn(bandList, today),
+                timeLine = buildTimeLine(logs, today),
                 charts = ChartsData(
                     daily = buildDailyChart(tracker, totals, bandList, today),
                     weekly = buildWeeklyChart(tracker, totals, bandList, today),
@@ -75,6 +78,14 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** The running timer (any tracker), or null. */
+    val timer: StateFlow<TimerInfo?> = repo.observeTimerInfo()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun startTimer() {
+        viewModelScope.launch { repo.startTimer(trackerId) }
+    }
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error

@@ -3,6 +3,7 @@ package com.seasons.app.domain
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 // Pure rules for the stopwatch. Times are epoch millis (absolute instants). Nothing here reads the clock.
 
@@ -39,4 +40,19 @@ fun formatClock(elapsedMillis: Long): String {
     val m = (total % 3600L) / 60L
     val s = total % 60L
     return "%d:%02d:%02d".format(h, m, s)
+}
+
+/** [millis] moved by [minutes] (negative = earlier). Seconds are kept. */
+fun adjustMinutes(millis: Long, minutes: Int): Long = millis + minutes * 60_000L
+
+/** The same time of day, on [date]. */
+fun withDate(millis: Long, date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): Long {
+    val time = Instant.ofEpochMilli(millis).atZone(zone).toLocalTime()
+    return ZonedDateTime.of(date, time, zone).toInstant().toEpochMilli()
+}
+
+/** The same date, at [hour]:[minute] with seconds cleared. */
+fun withTime(millis: Long, hour: Int, minute: Int, zone: ZoneId = ZoneId.systemDefault()): Long {
+    val date = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+    return date.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
 }

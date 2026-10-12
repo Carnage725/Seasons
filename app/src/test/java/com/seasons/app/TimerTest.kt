@@ -1,11 +1,14 @@
 package com.seasons.app
 
+import com.seasons.app.domain.adjustMinutes
 import com.seasons.app.domain.dateOfEnd
 import com.seasons.app.domain.elapsedMinutes
 import com.seasons.app.domain.formatClock
 import com.seasons.app.domain.formatMinutes
 import com.seasons.app.domain.runningStartError
 import com.seasons.app.domain.timeError
+import com.seasons.app.domain.withDate
+import com.seasons.app.domain.withTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -76,5 +79,29 @@ class TimerTest {
         assertEquals("0:01:05", formatClock(65_000))
         assertEquals("2:13:05", formatClock((2 * 3600 + 13 * 60 + 5) * 1000L))
         assertEquals("0:00:00", formatClock(-5000))
+    }
+
+    @Test fun adjust_movesByMinutes_keepsSeconds() {
+        val t = ms(2026, 10, 5, 13, 19, 30)
+        assertEquals(ms(2026, 10, 5, 13, 49, 30), adjustMinutes(t, 30))
+        assertEquals(ms(2026, 10, 5, 13, 14, 30), adjustMinutes(t, -5))
+        assertEquals(ms(2026, 10, 5, 12, 49, 30), adjustMinutes(t, -30))
+        assertEquals(ms(2026, 10, 5, 13, 20, 30), adjustMinutes(t, 1))
+    }
+
+    @Test fun adjust_acrossMidnight_changesTheDate() {
+        val t = ms(2026, 10, 5, 23, 50)
+        assertEquals(LocalDate.of(2026, 10, 6), dateOfEnd(adjustMinutes(t, 30), zone))
+        assertEquals(LocalDate.of(2026, 10, 5), dateOfEnd(adjustMinutes(t, -30), zone))
+    }
+
+    @Test fun withDate_keepsTimeOfDay() {
+        val t = ms(2026, 10, 5, 13, 19, 30)
+        assertEquals(ms(2026, 10, 3, 13, 19, 30), withDate(t, LocalDate.of(2026, 10, 3), zone))
+    }
+
+    @Test fun withTime_keepsDate_clearsSeconds() {
+        val t = ms(2026, 10, 5, 13, 19, 30)
+        assertEquals(ms(2026, 10, 5, 9, 5), withTime(t, 9, 5, zone))
     }
 }
