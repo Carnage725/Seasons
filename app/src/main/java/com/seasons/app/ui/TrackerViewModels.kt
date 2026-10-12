@@ -10,7 +10,9 @@ import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChartModel
 import com.seasons.app.ui.charts.OnTrackModel
 import com.seasons.app.ui.charts.SeasonModel
+import com.seasons.app.ui.charts.TimeStripModel
 import com.seasons.app.ui.charts.buildDailyChart
+import com.seasons.app.ui.charts.buildTimeStrip
 import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
@@ -38,6 +40,8 @@ data class TrackerUiState(
 /** Null parts: the season chart needs settings (loading), the On track chart is for goals only. */
 data class ChartsData(
     val daily: BarChartModel,
+    /** Stopwatch minutes under the Daily chart, or null when there are none. */
+    val dailyTime: TimeStripModel?,
     val weekly: BarChartModel,
     val season: SeasonModel?,
     val onTrack: OnTrackModel?,
@@ -66,6 +70,7 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                 timeLine = buildTimeLine(logs, today),
                 charts = ChartsData(
                     daily = buildDailyChart(tracker, totals, bandList, today),
+                    dailyTime = buildTimeStrip(logs, today),
                     weekly = buildWeeklyChart(tracker, totals, bandList, today),
                     season = settings?.let {
                         buildSeasonModel(

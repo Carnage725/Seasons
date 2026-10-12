@@ -165,3 +165,10 @@
 - **View models are kept by key**, so each opening of a timer screen carries a token (`Screen.TimerStop(token)` etc.) to get a fresh one. Otherwise a second Stop would show the first one's old times.
 - **History** shows `12:52 PM – 1:24 PM · 31m` under the date of a stopwatch entry. The tracker screen shows `Time today 31m · last 14 days 31m` when the tracker has any stopwatch entries.
 - **Tested on the phone over adb:** start, reinstall the app while the timer ran (the clock continued, so it survives process death), long press -> Edit start -30 -> 31m, stop, amount, Save, History row, Edit entry opens with the same values.
+
+## MVP 2, Phase 5 (time on the Daily chart)
+- **Rule from the book (ch. 2, "Secondary y-axis: generally not a good idea"):** different units must not share a second y-axis. The charts are pulled apart vertically and share the same days, each with its own scale starting at zero.
+- **Daily tab:** the amount chart is unchanged. Under it, a thin **time strip** (`TimeStrip` in `ui/charts/Charts.kt`): grey bars (`#616161`, so color stays reserved for the tracker's amount), zero baseline, no grid, no legend. Caption "Time per day · longest 1h 5m" is a direct label. Only today's value is labeled. The strip uses the same left and right padding as the bar chart, so the 14 days line up.
+- **Hidden when there is no time:** `buildTimeStrip` returns null when none of the last 14 days has stopwatch minutes, so a tracker without stopwatch data looks exactly as before. Each day's minutes are the whole minutes of the entries on that date (the end date), rounded down per entry, added up.
+- **Screen readers:** the strip has its own description (`describeTimeStrip`): today's time and the longest day.
+- **Not changed:** Weekly and Season tabs, the widget graph, season snapshots.

@@ -46,6 +46,7 @@ import com.seasons.app.ui.Grey1
 import com.seasons.app.ui.Grey2
 import com.seasons.app.ui.Grey3
 import com.seasons.app.ui.TextMain
+import com.seasons.app.domain.formatMinutes
 import com.seasons.app.ui.formatAmount
 import java.time.LocalDate
 
@@ -149,6 +150,42 @@ fun BarChart(model: BarChartModel, color: Color, description: String, modifier: 
 
         label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
         label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
+    }
+}
+
+// ---------- Time strip (under the Daily chart) ----------
+
+/**
+ * Stopwatch minutes per day, pulled apart from the amount chart (its own scale, starting at zero) and sharing the
+ * same days. Grey, so color stays reserved for the tracker's amount. Only today's value is labeled.
+ */
+@Composable
+fun TimeStrip(model: TimeStripModel, modifier: Modifier = Modifier) {
+    val measurer = rememberTextMeasurer()
+    Canvas(modifier.fillMaxWidth().height(86.dp).semantics { contentDescription = describeTimeStrip(model) }) {
+        val rightPad = 44.dp.toPx() // same as BarChart, so the days line up
+        val topPad = 36.dp.toPx() // room for the caption and today's value
+        val plotW = size.width - rightPad
+        val plotH = size.height - topPad
+        val n = model.minutes.size
+        val slot = plotW / n
+        val barW = slot * 0.62f
+        fun y(v: Long) = topPad + plotH * (1f - v.toFloat() / model.maxMinutes.toFloat())
+        val baseY = y(0)
+
+        label(measurer, "Time per day · longest ${formatMinutes(model.maxMinutes)}", Grey1, 0f, 0f)
+
+        model.minutes.forEachIndexed { i, m ->
+            if (m > 0L) {
+                val top = y(m)
+                drawRect(Grey2, Offset(i * slot + (slot - barW) / 2f, top), Size(barW, baseY - top))
+            }
+        }
+        drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
+
+        val last = model.minutes.last()
+        val lastCenter = (n - 1) * slot + slot / 2f
+        label(measurer, formatMinutes(last), TextMain, lastCenter, y(last) - 16.dp.toPx(), Anchor.CENTER, bold = true)
     }
 }
 

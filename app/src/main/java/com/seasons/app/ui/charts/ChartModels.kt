@@ -1,15 +1,18 @@
 package com.seasons.app.ui.charts
 
 import com.seasons.app.data.BandPeriod
+import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Tracker
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dayMet
+import com.seasons.app.domain.formatMinutes
 import com.seasons.app.domain.heatmapColumns
 import com.seasons.app.domain.seasonDay
 import com.seasons.app.domain.seasonNumber
 import com.seasons.app.domain.seasonStartDate
 import com.seasons.app.ui.formatAmount
+import com.seasons.app.ui.minutesByDay
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -67,6 +70,17 @@ fun buildDailyChart(
         firstLabel = shortDate(dates.first(), today),
         lastLabel = "Today",
     )
+}
+
+/** The minutes strip under the Daily chart: stopwatch minutes per day, same days as the bars. */
+data class TimeStripModel(val minutes: List<Long>, val maxMinutes: Long)
+
+/** Null when none of the last [days] days has stopwatch time, so a tracker without time looks as it always did. */
+fun buildTimeStrip(logs: List<LogEntry>, today: LocalDate, days: Int = 14): TimeStripModel? {
+    val perDay = logs.minutesByDay()
+    val minutes = (days - 1 downTo 0).map { perDay[today.minusDays(it.toLong())] ?: 0L }
+    val max = minutes.max()
+    return if (max <= 0L) null else TimeStripModel(minutes, max)
 }
 
 /** Last [weeks] Monday-start weeks ending with the current one. WEEKLY band trackers plot active days. */
@@ -242,6 +256,9 @@ fun describeBarChart(title: String, model: BarChartModel, unit: String): String 
     model.bandLabel?.let { append(" Band ").append(it).append('.') }
     append(" Highest bar ").append(formatAmount(model.bars.maxOf { it.value })).append('.')
 }
+
+fun describeTimeStrip(model: TimeStripModel): String =
+    "Time per day, same days. Today ${formatMinutes(model.minutes.last())}. Longest day ${formatMinutes(model.maxMinutes)}."
 
 fun describeSeason(model: SeasonModel): String =
     "Season ${model.number} heatmap, day ${model.dayOfSeason} of ${model.length}. " +
