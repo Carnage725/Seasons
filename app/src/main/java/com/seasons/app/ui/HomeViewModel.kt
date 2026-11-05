@@ -46,7 +46,7 @@ fun HomeRow.streakText(): String = "Streak $streak" + if (tracker.bandPeriod == 
 fun List<LogEntry>.dailyTotals(): Map<LocalDate, Double> =
     groupBy { it.date }.mapValues { (_, entries) -> entries.sumOf { it.amount } }
 
-fun List<BandHistory>.toBands(): List<Band> = map { Band(it.effectiveFrom, it.lower, it.upper) }
+fun List<BandHistory>.toBands(): List<Band> = map { Band(it.effectiveFrom, it.lower) }
 
 fun buildHomeRow(tracker: Tracker, logs: List<LogEntry>, bands: List<Band>, today: LocalDate): HomeRow {
     val totals = logs.dailyTotals()
@@ -64,7 +64,7 @@ fun buildHomeRow(tracker: Tracker, logs: List<LogEntry>, bands: List<Band>, toda
     val done = totals.values.sum()
     val progress = when {
         tracker.type == TrackerType.GOAL && (tracker.target ?: 0.0) > 0.0 -> done / tracker.target!!
-        dailyBand != null && dailyBand.upper > 0.0 -> todayTotal / dailyBand.upper
+        dailyBand != null && dailyBand.lower > 0.0 -> todayTotal / dailyBand.lower
         else -> 0.0
     }.coerceIn(0.0, 1.0).toFloat()
 

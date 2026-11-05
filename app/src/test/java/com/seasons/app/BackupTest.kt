@@ -60,9 +60,9 @@ class BackupTest {
             ),
         ),
         bands = listOf(
-            BandHistory(1, 1, d.minusDays(20), 3.0, 6.0),
-            BandHistory(2, 1, d.minusDays(2), 5.5, 8.0),
-            BandHistory(3, 2, d.minusDays(60), 2.0, 5.0),
+            BandHistory(1, 1, d.minusDays(20), 3.0),
+            BandHistory(2, 1, d.minusDays(2), 5.5),
+            BandHistory(3, 2, d.minusDays(60), 2.0),
         ),
         logs = listOf(
             LogEntry(1, 1, d, 0.1 + 0.2, 1_700_000_000_123L),
@@ -111,7 +111,7 @@ class BackupTest {
     @Test fun export_hasAppNameVersionAndTime() {
         val root = JSONObject(sample().toJson(exportedAt))
         assertEquals("Seasons", root.getString("app"))
-        assertEquals(2, root.getInt("version"))
+        assertEquals(3, root.getInt("version"))
         assertEquals("2026-10-08T09:00:00Z", root.getString("exportedAt"))
     }
 
@@ -127,7 +127,7 @@ class BackupTest {
 
     @Test fun rejects_wrongAppName() = assertRejected("not a Seasons backup", json { it.put("app", "Other") })
 
-    @Test fun rejects_newerVersion() = assertRejected("newer version", json { it.put("version", 3) })
+    @Test fun rejects_newerVersion() = assertRejected("newer version", json { it.put("version", 4) })
 
     @Test fun rejects_missingVersion() = assertRejected("version", json { it.remove("version") })
 
@@ -164,8 +164,7 @@ class BackupTest {
     })
 
     @Test fun rejects_badBandBounds() {
-        assertRejected("invalid bounds", json { it.getJSONArray("bands").getJSONObject(0).put("lower", 9).put("upper", 2) })
-        assertRejected("invalid bounds", json { it.getJSONArray("bands").getJSONObject(0).put("lower", -1) })
+        assertRejected("invalid minimum", json { it.getJSONArray("bands").getJSONObject(0).put("lower", -1) })
     }
 
     @Test fun rejects_twoBandRowsForTheSameDay() = assertRejected("same date", json {
@@ -215,6 +214,19 @@ class BackupTest {
         assertEquals(77, data.settings!!.seasonLength)
     }
 
+    @Test fun oldFile_withBandMaximum_stillImports_andMaximumIsIgnored() {
+        val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
+        val data = parseBackup(text)
+        assertTrue(data.bands.all { it.lower >= 0.0 })
+        assertTrue(text.contains("\"upper\""))
+    }
+
+    @Test fun oldFile_withInconsistentMaximum_isNotRejectedForIt() {
+        val root = JSONObject(javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() })
+        root.getJSONArray("bands").getJSONObject(0).put("upper", -5)
+        assertEquals(2, parseBackup(root.toString()).bands.size)
+    }
+
     @Test fun oldReplacedStatus_isReadAsArchived() {
         val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
         val data = parseBackup(text)
@@ -232,10 +244,11 @@ class BackupTest {
         assertEquals(4, parseBackup(text).trackers.size)
     }
 
-    @Test fun export_writesFormatTwoWithoutGroups() {
+    @Test fun export_writesFormatThreeWithoutGroupsOrBandMaximum() {
         val root = JSONObject(sample().toJson(Instant.parse("2026-10-10T08:00:00Z")))
-        assertEquals(2, root.getInt("version"))
+        assertEquals(3, root.getInt("version"))
         assertTrue(!root.has("groups"))
+        assertTrue(!root.getJSONArray("bands").getJSONObject(0).has("upper"))
         assertTrue(!root.getJSONArray("trackers").getJSONObject(0).has("groupId"))
     }
 

@@ -63,26 +63,33 @@ class RepositoryTest {
     }
 
     @Test fun create_goalWithoutBand_hasNoBandRows() = runBlocking {
-        val id = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(goal(), null)
         assertTrue(repo.observeBands(id).first().isEmpty())
         assertEquals("Book", repo.getTracker(id)!!.name)
     }
 
     @Test fun create_withBand_insertsFirstBandRowAtStartDate() = runBlocking {
         val t = ongoing()
-        val id = repo.createTracker(t, 3.0, 6.0)
+        val id = repo.createTracker(t, 3.0)
         val bands = repo.observeBands(id).first()
         assertEquals(1, bands.size)
         assertEquals(t.startDate, bands[0].effectiveFrom)
         assertEquals(3.0, bands[0].lower, 0.0)
-        assertEquals(6.0, bands[0].upper, 0.0)
+    }
+
+    @Test fun changeBand_onTrackerWithoutBand_makesItDaily() = runBlocking {
+        val id = repo.createTracker(goal(), null)
+        assertEquals(BandPeriod.NONE, repo.getTracker(id)!!.bandPeriod)
+        repo.changeBand(id, today, 4.0)
+        assertEquals(BandPeriod.DAILY, repo.getTracker(id)!!.bandPeriod)
+        assertEquals(4.0, repo.bandOn(id, today)!!.lower, 0.0)
     }
 
     @Test fun changeBand_addsRow_andSameDateReplaces() = runBlocking {
-        val id = repo.createTracker(ongoing(), 3.0, 6.0)
-        repo.changeBand(id, today, 5.0, 8.0)
+        val id = repo.createTracker(ongoing(), 3.0)
+        repo.changeBand(id, today, 5.0)
         assertEquals(2, repo.observeBands(id).first().size)
-        repo.changeBand(id, today, 6.0, 9.0)
+        repo.changeBand(id, today, 6.0)
         val bands = repo.observeBands(id).first()
         assertEquals(2, bands.size)
         assertEquals(6.0, bands.last().lower, 0.0)
@@ -90,7 +97,7 @@ class RepositoryTest {
     }
 
     @Test fun addLog_isAdditive_andOrderedNewestFirst() = runBlocking {
-        val id = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(goal(), null)
         repo.addLog(id, today, 5.0, today)
         repo.addLog(id, today, 2.0, today)
         repo.addLog(id, today.minusDays(1), 1.0, today)
@@ -101,7 +108,7 @@ class RepositoryTest {
     }
 
     @Test fun addLog_rejectsBadInput() = runBlocking {
-        val id = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(goal(), null)
         expectFailure { repo.addLog(id, today, 0.0, today) }
         expectFailure { repo.addLog(id, today, -1.0, today) }
         expectFailure { repo.addLog(id, today.plusDays(1), 1.0, today) }
@@ -111,14 +118,14 @@ class RepositoryTest {
 
     @Test fun addLog_backfillOnStartDateAndTodayAllowed() = runBlocking {
         val t = goal()
-        val id = repo.createTracker(t, null, null)
+        val id = repo.createTracker(t, null)
         repo.addLog(id, t.startDate, 1.0, today)
         repo.addLog(id, today, 1.0, today)
         assertEquals(2, repo.observeLogs(id).first().size)
     }
 
     @Test fun editLog_changesAmountAndDate_andValidates() = runBlocking {
-        val id = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(goal(), null)
         val entryId = repo.addLog(id, today, 5.0, today)
         val entry = repo.getLog(entryId)!!
         repo.editLog(entry, today.minusDays(2), 9.0, today)
@@ -130,7 +137,7 @@ class RepositoryTest {
     }
 
     @Test fun deleteLog_removesOnlyThatEntry() = runBlocking {
-        val id = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(goal(), null)
         val a = repo.addLog(id, today, 5.0, today)
         repo.addLog(id, today, 2.0, today)
         repo.deleteLog(repo.getLog(a)!!)
@@ -140,8 +147,8 @@ class RepositoryTest {
     }
 
     @Test fun deleteTracker_cascadesLogsAndBands_andLeavesOthers() = runBlocking {
-        val id = repo.createTracker(ongoing(), 3.0, 6.0)
-        val other = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(ongoing(), 3.0)
+        val other = repo.createTracker(goal(), null)
         repo.addLog(id, today, 4.0, today)
         repo.addLog(other, today, 1.0, today)
 
@@ -155,7 +162,7 @@ class RepositoryTest {
     }
 
     @Test fun markCompleted_setsStatusAndDate() = runBlocking {
-        val id = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(goal(), null)
         repo.markCompleted(repo.getTracker(id)!!, today)
         val t = repo.getTracker(id)!!
         assertEquals(TrackerStatus.COMPLETED, t.status)
@@ -174,7 +181,7 @@ class RepositoryTest {
     // ---------- archive ----------
 
     @Test fun archive_thenUnarchive_keepsEverything() = runBlocking {
-        val id = repo.createTracker(ongoing(), 3.0, 6.0)
+        val id = repo.createTracker(ongoing(), 3.0)
         repo.addLog(id, today, 4.0, today)
         repo.archiveTracker(repo.getTracker(id)!!)
         assertEquals(TrackerStatus.ARCHIVED, repo.getTracker(id)!!.status)
@@ -188,7 +195,7 @@ class RepositoryTest {
     }
 
     @Test fun unarchive_ignoresATrackerThatIsNotArchived() = runBlocking {
-        val id = repo.createTracker(goal(), null, null)
+        val id = repo.createTracker(goal(), null)
         val stale = repo.getTracker(id)!!.copy(status = TrackerStatus.ARCHIVED) // a stale copy from a second tap
         repo.unarchive(stale) // the real one is still ACTIVE
         assertEquals(TrackerStatus.ACTIVE, repo.getTracker(id)!!.status)
@@ -213,7 +220,7 @@ class RepositoryTest {
             db.clearAllTables()
             val seasonStart = today.minusDays(2L * len + 3)
             repo.saveFirstSettings(seasonStart, len)
-            val id = repo.createTracker(goal(start = seasonStart), null, null)
+            val id = repo.createTracker(goal(start = seasonStart), null)
             repo.addLog(id, seasonStart.plusDays(1), 5.0, today) // inside season 1
             repo.addLog(id, seasonStart.plusDays(len + 2L), 7.0, today) // inside season 2
 
@@ -237,7 +244,7 @@ class RepositoryTest {
     @Test fun closeFinishedSeasons_snapshotIsFrozen() = runBlocking {
         val seasonStart = today.minusDays(20)
         repo.saveFirstSettings(seasonStart, 7)
-        val id = repo.createTracker(goal(start = seasonStart), null, null)
+        val id = repo.createTracker(goal(start = seasonStart), null)
         repo.addLog(id, seasonStart, 5.0, today)
         repo.closeFinishedSeasons(today)
         val before = repo.observeSeasonSummaries().first().first { it.startDate == seasonStart }.payloadJson
@@ -256,7 +263,7 @@ class RepositoryTest {
     @Test fun changeSeason_midSeason_snapshotsPartial_thenNumberingContinues() = runBlocking {
         val seasonStart = today.minusDays(20) // day 21 of season 1, length 77
         repo.saveFirstSettings(seasonStart, 77)
-        val id = repo.createTracker(goal(start = seasonStart), null, null)
+        val id = repo.createTracker(goal(start = seasonStart), null)
         repo.addLog(id, seasonStart.plusDays(2), 4.0, today)
         repo.addLog(id, today, 9.0, today) // belongs to the new season
 
@@ -321,9 +328,9 @@ class RepositoryTest {
 
     private suspend fun fillSampleData(): Long {
         repo.saveFirstSettings(today.minusDays(40), 30)
-        val a = repo.createTracker(goal().copy(name = "Mom é 日本"), null, null)
-        val b = repo.createTracker(ongoing(), 3.0, 6.0)
-        repo.changeBand(b, today.minusDays(2), 5.5, 8.0)
+        val a = repo.createTracker(goal().copy(name = "Mom é 日本"), null)
+        val b = repo.createTracker(ongoing(), 3.0)
+        repo.changeBand(b, today.minusDays(2), 5.5)
         repo.addLog(a, today, 12.5, today)
         repo.addLog(a, today.minusDays(3), 0.1 + 0.2, today)
         repo.addLog(b, today.minusDays(1), 4.0, today)
@@ -357,7 +364,7 @@ class RepositoryTest {
         }
         db.clearAllTables()
         // Something else is in the app when the import happens.
-        val other = repo.createTracker(goal().copy(name = "Will be gone"), null, null)
+        val other = repo.createTracker(goal().copy(name = "Will be gone"), null)
         repo.addLog(other, today, 9.0, today)
 
         repo.replaceAll(backup)
@@ -409,7 +416,7 @@ class RepositoryTest {
             summaries = emptyList(),
         )
         repo.replaceAll(backup)
-        val next = repo.createTracker(goal(), null, null)
+        val next = repo.createTracker(goal(), null)
         assertTrue("new id $next should be above 40", next > 40)
     }
 

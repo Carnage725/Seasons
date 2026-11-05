@@ -8,7 +8,7 @@ import kotlin.math.max
 
 // Pure Kotlin. No Android, no database. `totals` is the sum of logs per date.
 
-data class Band(val effectiveFrom: LocalDate, val lower: Double, val upper: Double)
+data class Band(val effectiveFrom: LocalDate, val lower: Double)
 
 /** The band for [date] = the row with the latest effectiveFrom <= date. Null if none yet. */
 fun bandOn(bands: List<Band>, date: LocalDate): Band? =

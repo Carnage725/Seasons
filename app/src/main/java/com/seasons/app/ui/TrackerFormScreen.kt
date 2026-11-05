@@ -90,7 +90,6 @@ private fun TrackerFormContent(
     var deadline by rememberSaveable { mutableStateOf(existing?.deadline) }
     var bandPeriod by rememberSaveable { mutableStateOf(existing?.bandPeriod ?: BandPeriod.NONE) }
     var lower by rememberSaveable { mutableStateOf("") }
-    var upper by rememberSaveable { mutableStateOf("") }
     var startDate by rememberSaveable { mutableStateOf(existing?.startDate ?: today) }
     var color by rememberSaveable { mutableStateOf(existing?.color ?: ColorPalette[0]) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -108,11 +107,10 @@ private fun TrackerFormContent(
         ChangeBandDialog(
             period = if (bandPeriod == BandPeriod.NONE) BandPeriod.DAILY else bandPeriod,
             initialLower = currentBand?.lower,
-            initialUpper = currentBand?.upper,
             startDate = existing.startDate,
             today = today,
-            onSave = { date, low, up ->
-                vm.changeBand(existing.id, date, low, up) {
+            onSave = { date, low ->
+                vm.changeBand(existing.id, date, low) {
                     if (bandPeriod == BandPeriod.NONE) bandPeriod = BandPeriod.DAILY
                     bandVersion++
                 }
@@ -213,11 +211,11 @@ private fun TrackerFormContent(
                 val unitText = if (bandPeriod == BandPeriod.WEEKLY) "active days per week" else "per day"
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        if (band == null) "No band" else "${formatAmount(band.lower)}–${formatAmount(band.upper)} $unitText",
+                        if (band == null) "No minimum" else "Minimum ${formatAmount(band.lower)} $unitText",
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = { changingBand = true }) {
-                        Text(if (bandPeriod == BandPeriod.NONE) "Add band" else "Change band")
+                        Text(if (bandPeriod == BandPeriod.NONE) "Add minimum" else "Change minimum")
                     }
                 }
             }
@@ -243,18 +241,11 @@ private fun TrackerFormContent(
                 }
                 if (bandPeriod != BandPeriod.NONE) {
                     val suffix = if (bandPeriod == BandPeriod.DAILY) "per day" else "active days per week"
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = lower, onValueChange = { lower = it }, singleLine = true,
-                            label = { Text("Lower") }, modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        )
-                        OutlinedTextField(
-                            value = upper, onValueChange = { upper = it }, singleLine = true,
-                            label = { Text("Upper") }, modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        )
-                    }
+                    OutlinedTextField(
+                        value = lower, onValueChange = { lower = it }, singleLine = true,
+                        label = { Text("Minimum") }, modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
                     Text(suffix, color = Grey1, style = MaterialTheme.typography.bodySmall)
                 }
 
@@ -271,7 +262,7 @@ private fun TrackerFormContent(
 
             Button(
                 onClick = {
-                    val input = TrackerFormInput(name, unit, type, target, deadline, bandPeriod, lower, upper, startDate)
+                    val input = TrackerFormInput(name, unit, type, target, deadline, bandPeriod, lower, startDate)
                     error = validateTracker(input, today, editing)
                     if (error == null) {
                         if (existing != null) {
@@ -300,7 +291,6 @@ private fun TrackerFormContent(
                                     startDate = startDate,
                                 ),
                                 if (hasBand) parseAmount(lower) else null,
-                                if (hasBand) parseAmount(upper) else null,
                                 onDone,
                             )
                         }

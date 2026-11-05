@@ -102,7 +102,7 @@ fun buildSeasonPayload(
         if (!included) return@mapNotNull null
 
         val totals = mine.groupBy { it.date }.mapValues { (_, list) -> list.sumOf { it.amount } }
-        val trackerBands = bands.filter { it.trackerId == t.id }.map { Band(it.effectiveFrom, it.lower, it.upper) }
+        val trackerBands = bands.filter { it.trackerId == t.id }.map { Band(it.effectiveFrom, it.lower) }
         val from = if (t.startDate.isAfter(start)) t.startDate else start
         val to = if (end.isBefore(today)) end else today
         val weekly = t.bandPeriod == BandPeriod.WEEKLY

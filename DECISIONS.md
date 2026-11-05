@@ -228,3 +228,12 @@
 - **Band changes still add a row**, never rewrite history. Earlier days keep the old band.
 - **Edit form keeps the period in its own state**, so saving the name afterwards does not put the old "no band" period back.
 - Instrumented tests were not run (they wipe app data on the phone).
+
+## Band has only a minimum (board card: remove maximum viable progress)
+- **The band's upper bound is gone** (asked for: it felt limiting). A band is now one number, the **minimum**: per day, or active days per week. The form, the change dialog, the Edit tracker row and all texts say "Minimum".
+- **Database version 6** (`@AutoMigration(5, 6)` with `@DeleteColumn(band_history.upper)`). The column and its values are deleted for good (agreed, backup made first). Minimums, dates, trackers, logs and everything else are kept. Same pattern as the version 2 and 5 migrations. Schema file `app/schemas/.../6.json` is committed. Migration test `v5ToV6_...` was written (run on the phone only after asking, because the instrumented tests wipe app data).
+- **Home and tracker progress bar = today / minimum, capped at 100%** (agreed). Weekly: active days / minimum days. A minimum of 0 shows 0%.
+- **Daily and Weekly charts:** the grey band stripe is replaced by **one grey line at the minimum**, stepping when the minimum changes. Right-end label is just the number (for example `3`). The y axis top is the larger of the biggest bar and the minimum. Bars below the minimum are still dim grey. The widget chart follows. Screen-reader text says "Minimum 3".
+- **Season heatmap:** a day's shade is its total divided by the larger of that day's minimum and the season's best day (was: upper bound). A day with no minimum is unchanged.
+- **Backup format 3.** New files have no `upper`. Format 1 and 2 files import as before: `upper` is read-free and ignored, even when inconsistent (tested). A format 3 file is refused by the old 1.1 app ("made by a newer version"), on purpose, because 1.1 would crash on the missing `upper`. Import now checks only the minimum (finite, not negative).
+- **Weekly minimum** still cannot be above 7.

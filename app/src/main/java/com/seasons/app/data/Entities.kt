@@ -44,7 +44,6 @@ data class BandHistory(
     val trackerId: Long,
     val effectiveFrom: LocalDate,
     val lower: Double,
-    val upper: Double,
 )
 
 @Entity(

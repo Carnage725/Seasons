@@ -61,11 +61,11 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
             .count { (totals[it] ?: 0.0) > 0.0 }
         headline = if (band != null) "$active / ${range(band)} days" else "$active days"
         subline = "active this week"
-        progress = if (band != null && band.upper > 0.0) active / band.upper else 0.0
+        progress = if (band != null && band.lower > 0.0) active / band.lower else 0.0
     } else {
         headline = if (band != null) "${formatAmount(todayTotal)} / ${range(band)} $unit" else "${formatAmount(todayTotal)} $unit"
         subline = "today"
-        progress = if (band != null && band.upper > 0.0) todayTotal / band.upper else 0.0
+        progress = if (band != null && band.lower > 0.0) todayTotal / band.lower else 0.0
     }
 
     val streaks = if (weekly) {
@@ -76,7 +76,7 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
 
     val todayLine = buildString {
         append("Today ${formatAmount(todayTotal)} $unit")
-        if (dailyBand != null) append(" · band ${range(dailyBand)}")
+        if (dailyBand != null) append(" · minimum ${range(dailyBand)}")
     }
 
     return TrackerSummary(
@@ -97,7 +97,7 @@ fun streakLabels(s: StreakStats, weekly: Boolean) = StreakLabels(
     unit = if (weekly) "weeks" else "days",
 )
 
-private fun range(b: Band) = "${formatAmount(b.lower)}–${formatAmount(b.upper)}"
+private fun range(b: Band) = formatAmount(b.lower)
 
 private fun needLine(tracker: Tracker, left: Double, today: LocalDate): String? {
     val deadline = tracker.deadline ?: return null

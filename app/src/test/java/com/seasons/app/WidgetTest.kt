@@ -134,10 +134,10 @@ class WidgetTest {
     }
 
     @Test fun single_dailyBand_chartHasTheBandStripeAndDimDays() {
-        val bands = listOf(Band(start, 3.0, 6.0))
+        val bands = listOf(Band(start, 3.0))
         val t = tracker(2, type = TrackerType.ONGOING, band = BandPeriod.DAILY)
         val d = buildSingleData(t, listOf(log(2, 0, 2.0), log(2, 1, 5.0)), bands, today)
-        assertEquals("3–6", d.chart.bandLabel)
+        assertEquals("3", d.chart.bandLabel)
         assertTrue(d.chart.bars.last().dim) // 2 < 3
         assertFalse(d.chart.bars[12].dim) // 5 >= 3
         assertEquals(3.0, d.chart.bars.last().lower!!, 0.0)
@@ -149,16 +149,16 @@ class WidgetTest {
     }
 
     @Test fun single_ongoingDailyBand_showsTodayAgainstTheBand() {
-        val bands = listOf(Band(start, 3.0, 6.0))
+        val bands = listOf(Band(start, 3.0))
         val t = tracker(2, type = TrackerType.ONGOING, band = BandPeriod.DAILY)
         val d = buildSingleData(t, listOf(log(2, 0, 2.0)), bands, today)
-        assertEquals("2 / 3–6 pages", d.headline)
+        assertEquals("2 / 3 pages", d.headline)
         assertEquals("Not yet", d.status)
         assertFalse(d.metToday)
     }
 
     @Test fun single_weeklyTracker_streakInWeeks() {
-        val bands = listOf(Band(start, 1.0, 5.0))
+        val bands = listOf(Band(start, 1.0))
         val t = tracker(3, type = TrackerType.ONGOING, band = BandPeriod.WEEKLY)
         val d = buildSingleData(t, listOf(log(3, 0, 1.0)), bands, today)
         assertTrue(d.streak.endsWith("wk"))

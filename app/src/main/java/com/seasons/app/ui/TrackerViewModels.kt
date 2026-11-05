@@ -120,16 +120,16 @@ class FormViewModel(private val repo: Repository) : ViewModel() {
 
     suspend fun currentBand(id: Long): BandHistory? = repo.bandOn(id, LocalDate.now())
 
-    fun changeBand(trackerId: Long, effectiveFrom: LocalDate, lower: Double, upper: Double, onDone: () -> Unit) {
+    fun changeBand(trackerId: Long, effectiveFrom: LocalDate, lower: Double, onDone: () -> Unit) {
         viewModelScope.launch {
-            repo.changeBand(trackerId, effectiveFrom, lower, upper)
+            repo.changeBand(trackerId, effectiveFrom, lower)
             onDone()
         }
     }
 
-    fun create(tracker: Tracker, lower: Double?, upper: Double?, onDone: () -> Unit) {
+    fun create(tracker: Tracker, lower: Double?, onDone: () -> Unit) {
         viewModelScope.launch {
-            repo.createTracker(tracker, lower, upper)
+            repo.createTracker(tracker, lower)
             onDone()
         }
     }

@@ -25,10 +25,10 @@ class Repository(private val db: AppDatabase) {
     fun observeSeasonSummaries() = summaries.observeAll()
 
     /** Creates the tracker and, if it has a band, its first band row (effective from startDate). */
-    suspend fun createTracker(tracker: Tracker, lower: Double?, upper: Double?): Long {
+    suspend fun createTracker(tracker: Tracker, lower: Double?): Long {
         val id = trackers.insert(tracker)
-        if (tracker.bandPeriod != BandPeriod.NONE && lower != null && upper != null) {
-            bands.insert(BandHistory(trackerId = id, effectiveFrom = tracker.startDate, lower = lower, upper = upper))
+        if (tracker.bandPeriod != BandPeriod.NONE && lower != null) {
+            bands.insert(BandHistory(trackerId = id, effectiveFrom = tracker.startDate, lower = lower))
         }
         return id
     }
@@ -42,13 +42,13 @@ class Repository(private val db: AppDatabase) {
      * Never rewrites history: adds a row. Same effectiveFrom replaces that one row.
      * A tracker that had no band becomes a daily-band tracker.
      */
-    suspend fun changeBand(trackerId: Long, effectiveFrom: LocalDate, lower: Double, upper: Double) {
+    suspend fun changeBand(trackerId: Long, effectiveFrom: LocalDate, lower: Double) {
         db.withTransaction {
             val tracker = requireNotNull(trackers.get(trackerId)) { "Tracker $trackerId not found" }
             if (tracker.bandPeriod == BandPeriod.NONE) {
                 trackers.update(tracker.copy(bandPeriod = BandPeriod.DAILY))
             }
-            bands.insert(BandHistory(trackerId = trackerId, effectiveFrom = effectiveFrom, lower = lower, upper = upper))
+            bands.insert(BandHistory(trackerId = trackerId, effectiveFrom = effectiveFrom, lower = lower))
         }
     }
 

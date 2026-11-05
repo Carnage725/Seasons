@@ -23,15 +23,14 @@ import kotlin.math.max
 fun shortDate(date: LocalDate, today: LocalDate): String =
     date.format(DateTimeFormatter.ofPattern(if (date.year == today.year) "MMM d" else "MMM d, yyyy", Locale.US))
 
-private fun range(b: Band) = "${formatAmount(b.lower)}–${formatAmount(b.upper)}"
+private fun range(b: Band) = formatAmount(b.lower)
 
 // ---------- Bars (Daily and Weekly) ----------
 
 data class BarSpec(
     val value: Double,
-    /** Band stripe behind the bar. Both null when there is no band for that bar. */
+    /** The band minimum for that bar, drawn as a line. Null when there is no band for that bar. */
     val lower: Double?,
-    val upper: Double?,
     /** Drawn dim grey instead of the tracker color. */
     val dim: Boolean,
 )
@@ -44,7 +43,7 @@ data class BarChartModel(
     val lastLabel: String,
 )
 
-/** Last [days] days ending today. Band stripe only for DAILY band trackers. */
+/** Last [days] days ending today. Minimum line only for DAILY band trackers. */
 fun buildDailyChart(
     tracker: Tracker,
     totals: Map<LocalDate, Double>,
@@ -57,7 +56,7 @@ fun buildDailyChart(
     val bars = dates.map { d ->
         val value = totals[d] ?: 0.0
         val band = if (daily) bandOn(bands, d) else null
-        BarSpec(value, band?.lower, band?.upper, dim = band != null && value < band.lower)
+        BarSpec(value, band?.lower, dim = band != null && value < band.lower)
     }
     val todayBand = if (daily) bandOn(bands, today) else null
     return BarChartModel(
@@ -87,9 +86,9 @@ fun buildWeeklyChart(
             // Same rule as the weekly streak: the band in effect on the week's Monday (or the start date).
             val beforeStart = monday.plusDays(6).isBefore(tracker.startDate)
             val band = if (beforeStart) null else bandOn(bands, laterOf(monday, tracker.startDate))
-            BarSpec(active, band?.lower, band?.upper, dim = false)
+            BarSpec(active, band?.lower, dim = false)
         } else {
-            BarSpec(days.sumOf { totals[it] ?: 0.0 }, null, null, dim = false)
+            BarSpec(days.sumOf { totals[it] ?: 0.0 }, null, dim = false)
         }
     }
     val currentBand = if (weekly) bandOn(bands, laterOf(thisMonday, tracker.startDate)) else null
@@ -105,7 +104,7 @@ fun buildWeeklyChart(
 private fun laterOf(a: LocalDate, b: LocalDate) = if (a.isAfter(b)) a else b
 
 private fun maxY(bars: List<BarSpec>): Double =
-    max(1.0, bars.maxOf { max(it.value, it.upper ?: 0.0) })
+    max(1.0, bars.maxOf { max(it.value, it.lower ?: 0.0) })
 
 // ---------- Season heatmap ----------
 
@@ -113,7 +112,7 @@ data class SeasonCell(
     val index: Int,
     val date: LocalDate,
     val total: Double,
-    /** total / max(that day's upper bound, season max), 0..1. */
+    /** total / max(that day's minimum, season max), 0..1. */
     val ratio: Float,
     /** Met the streak rule that day. */
     val met: Boolean,
@@ -154,7 +153,7 @@ fun buildSeasonModel(
         val isCounted = counted(d)
         val total = if (isCounted) totals[d] ?: 0.0 else 0.0
         val band = if (daily) bandOn(bands, d) else null
-        val denominator = max(band?.upper ?: 0.0, seasonMax)
+        val denominator = max(band?.lower ?: 0.0, seasonMax)
         SeasonCell(
             index = i,
             date = d,
@@ -239,7 +238,7 @@ fun buildOnTrackChart(
 fun describeBarChart(title: String, model: BarChartModel, unit: String): String = buildString {
     val last = model.bars.last()
     append(title).append(". ").append(model.lastLabel).append(": ").append(formatAmount(last.value)).append(' ').append(unit).append('.')
-    model.bandLabel?.let { append(" Band ").append(it).append('.') }
+    model.bandLabel?.let { append(" Minimum ").append(it).append('.') }
     append(" Highest bar ").append(formatAmount(model.bars.maxOf { it.value })).append('.')
 }
 

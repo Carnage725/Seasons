@@ -25,6 +25,10 @@ class Migration1To2 : AutoMigrationSpec
 )
 class Migration4To5 : AutoMigrationSpec
 
+/** Version 6: bands have only a minimum. The maximum ("upper") is dropped. Minimums, dates and everything else are kept. */
+@DeleteColumn(tableName = "band_history", columnName = "upper")
+class Migration5To6 : AutoMigrationSpec
+
 /** Version 3: the REPLACED status is gone. Those trackers (restarted with "Start fresh") become plain archived ones. */
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -40,7 +44,7 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         Settings::class,
         SeasonSummary::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = Migration1To2::class),
@@ -48,6 +52,8 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         AutoMigration(from = 3, to = 4),
         // Version 5: the stopwatch is gone again. The time columns and the timer table are dropped. Amounts stay.
         AutoMigration(from = 4, to = 5, spec = Migration4To5::class),
+        // Version 6: band maximum dropped.
+        AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
     ],
 )
 @TypeConverters(Converters::class)

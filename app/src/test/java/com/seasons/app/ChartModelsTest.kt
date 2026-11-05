@@ -50,35 +50,34 @@ class ChartModelsTest {
         assertNull(m.bandLabel)
     }
 
-    @Test fun daily_bandStripeSteps_andDimsDaysBelowLower() {
-        val bands = listOf(Band(start, 3.0, 6.0), Band(d(-3), 5.0, 8.0))
+    @Test fun daily_minimumLineSteps_andDimsDaysBelowMinimum() {
+        val bands = listOf(Band(start, 3.0), Band(d(-3), 5.0))
         val t = totals(-13 to 2.0, -4 to 3.0, -3 to 4.0, 0 to 9.0)
         val m = buildDailyChart(tracker(band = BandPeriod.DAILY), t, bands, today)
         val byOffset = { off: Int -> m.bars[13 + off] }
         assertEquals(3.0, byOffset(-4).lower!!, 0.0)
-        assertEquals(6.0, byOffset(-4).upper!!, 0.0)
         assertEquals(5.0, byOffset(-3).lower!!, 0.0)
-        assertEquals(8.0, byOffset(0).upper!!, 0.0)
+        assertEquals(5.0, byOffset(0).lower!!, 0.0)
         assertTrue(byOffset(-13).dim) // 2 < 3
         assertFalse(byOffset(-4).dim) // 3 >= 3
         assertTrue(byOffset(-3).dim) // 4 < 5 under the new band
-        assertFalse(byOffset(0).dim) // over the upper bound is fine
-        assertEquals("5–8", m.bandLabel)
+        assertFalse(byOffset(0).dim) // far over the minimum is fine
+        assertEquals("5", m.bandLabel)
         assertEquals(9.0, m.maxY, 0.0)
     }
 
     @Test fun daily_noBand_neverDims_andHasNoStripe() {
         val m = buildDailyChart(tracker(), totals(0 to 1.0), emptyList(), today)
-        assertTrue(m.bars.all { !it.dim && it.lower == null && it.upper == null })
+        assertTrue(m.bars.all { !it.dim && it.lower == null })
     }
 
     @Test fun daily_weeklyBandTrackerHasNoDailyStripe() {
-        val m = buildDailyChart(tracker(band = BandPeriod.WEEKLY), totals(0 to 1.0), listOf(Band(start, 3.0, 5.0)), today)
+        val m = buildDailyChart(tracker(band = BandPeriod.WEEKLY), totals(0 to 1.0), listOf(Band(start, 3.0)), today)
         assertTrue(m.bars.all { it.lower == null })
     }
 
-    @Test fun daily_maxYAtLeastUpperBoundAndAtLeastOne() {
-        val bands = listOf(Band(start, 3.0, 20.0))
+    @Test fun daily_maxYAtLeastMinimumAndAtLeastOne() {
+        val bands = listOf(Band(start, 20.0))
         assertEquals(20.0, buildDailyChart(tracker(band = BandPeriod.DAILY), totals(0 to 2.0), bands, today).maxY, 0.0)
         assertEquals(1.0, buildDailyChart(tracker(), emptyMap(), emptyList(), today).maxY, 0.0)
     }
@@ -96,22 +95,21 @@ class ChartModelsTest {
         assertTrue(m.bars.all { it.lower == null })
     }
 
-    @Test fun weekly_weeklyBand_plotsActiveDaysWithStripe() {
-        val bands = listOf(Band(start, 3.0, 5.0))
+    @Test fun weekly_weeklyBand_plotsActiveDaysWithMinimumLine() {
+        val bands = listOf(Band(start, 3.0))
         // This week: Mon and Wed active -> 2. Last week: Mon, Tue, Thu active, one day twice -> 3 active days.
         val t = totals(-2 to 1.0, 0 to 1.0, -9 to 1.0, -8 to 4.0, -6 to 1.0)
         val m = buildWeeklyChart(tracker(band = BandPeriod.WEEKLY), t, bands, today)
         assertEquals(2.0, m.bars.last().value, 0.0)
         assertEquals(3.0, m.bars[9].value, 0.0)
         assertEquals(3.0, m.bars.last().lower!!, 0.0)
-        assertEquals(5.0, m.bars.last().upper!!, 0.0)
-        assertEquals("3–5", m.bandLabel)
-        assertEquals(5.0, m.maxY, 0.0)
+        assertEquals("3", m.bandLabel)
+        assertEquals(3.0, m.maxY, 0.0)
         assertTrue(m.bars.none { it.dim })
     }
 
     @Test fun weekly_weeksBeforeTheTrackerStartedHaveNoStripe() {
-        val bands = listOf(Band(start, 3.0, 5.0))
+        val bands = listOf(Band(start, 3.0))
         val m = buildWeeklyChart(tracker(band = BandPeriod.WEEKLY), emptyMap(), bands, today)
         assertNull(m.bars.first().lower) // Jul 27, long before the start
         assertEquals(3.0, m.bars.last().lower!!, 0.0)
@@ -133,25 +131,25 @@ class ChartModelsTest {
     }
 
     @Test fun season_middleOfSeason_ratioMetAndCounted() {
-        val bands = listOf(Band(start, 3.0, 6.0))
+        val bands = listOf(Band(start, 3.0))
         val t = totals(0 to 5.0, -2 to 2.0)
         val m = buildSeasonModel(tracker(band = BandPeriod.DAILY), t, bands, today, d(-10), 30)!!
         assertEquals(11, m.dayOfSeason)
         val todayCell = m.cells[10]
         assertEquals(today, todayCell.date)
-        assertEquals(5f / 6f, todayCell.ratio, 1e-6f)
+        assertEquals(1f, todayCell.ratio, 1e-6f) // 5 is the season max, above the minimum 3
         assertTrue(todayCell.met)
         assertTrue(todayCell.counted)
         val partial = m.cells[8]
-        assertEquals(2f / 6f, partial.ratio, 1e-6f)
+        assertEquals(2f / 5f, partial.ratio, 1e-6f)
         assertFalse(partial.met) // 2 < lower 3: partial progress
         assertTrue(partial.counted)
         assertFalse(m.cells[11].counted) // tomorrow
         assertEquals(0.0, m.cells[11].total, 0.0)
     }
 
-    @Test fun season_ratioUsesSeasonMaxWhenAboveUpperBound() {
-        val bands = listOf(Band(start, 3.0, 6.0))
+    @Test fun season_ratioUsesSeasonMaxWhenAboveMinimum() {
+        val bands = listOf(Band(start, 3.0))
         val m = buildSeasonModel(tracker(band = BandPeriod.DAILY), totals(0 to 12.0, -1 to 6.0), bands, today, d(-10), 30)!!
         assertEquals(1f, m.cells[10].ratio, 1e-6f)
         assertEquals(0.5f, m.cells[9].ratio, 1e-6f)
@@ -250,10 +248,10 @@ class ChartModelsTest {
     // ---------- spoken descriptions ----------
 
     @Test fun describe_barChart_saysLatestBandAndHighest() {
-        val bands = listOf(Band(start, 3.0, 6.0))
+        val bands = listOf(Band(start, 3.0))
         val m = buildDailyChart(tracker(band = BandPeriod.DAILY), totals(0 to 5.0, -2 to 9.0), bands, today)
         assertEquals(
-            "Daily chart, last 14 days. Today: 5 laps. Band 3–6. Highest bar 9.",
+            "Daily chart, last 14 days. Today: 5 laps. Minimum 3. Highest bar 9.",
             describeBarChart("Daily chart, last 14 days", m, "laps"),
         )
     }

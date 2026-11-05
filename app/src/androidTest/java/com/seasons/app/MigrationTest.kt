@@ -11,6 +11,7 @@ import com.seasons.app.data.AppDatabase
 import com.seasons.app.data.MIGRATION_2_3
 import com.seasons.app.data.Migration1To2
 import com.seasons.app.data.Migration4To5
+import com.seasons.app.data.Migration5To6
 import com.seasons.app.data.Repository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -30,7 +31,7 @@ class MigrationTest {
     val helper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),
         AppDatabase::class.java,
-        listOf(Migration1To2(), Migration4To5()),
+        listOf(Migration1To2(), Migration4To5(), Migration5To6()),
         FrameworkSQLiteOpenHelperFactory(),
     )
 
@@ -212,7 +213,37 @@ class MigrationTest {
         db.close()
     }
 
-    @Test fun v1ToV5_fullChain_opensWithTheAppsBuilder() = runBlocking {
+    @Test fun v5ToV6_dropsBandMaximum_keepsMinimumsAndEverythingElse() {
+        helper.createDatabase(dbName, 5).apply {
+            execSQL(
+                "INSERT INTO trackers (id, name, unit, type, color, target, deadline, bandPeriod, startDate, status, completedDate, sortOrder) VALUES " +
+                    "(1, 'Mom Test', 'pages', 'GOAL', 11, 200.0, NULL, 'DAILY', 20300, 'ACTIVE', NULL, 0)",
+            )
+            execSQL("INSERT INTO band_history (id, trackerId, effectiveFrom, lower, upper) VALUES (1, 1, 20300, 3.0, 6.0), (2, 1, 20320, 5.0, 9.0)")
+            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 12.5, 1000), (2, 1, 20331, 4.0, 2000)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 6, true)
+
+        assertEquals(1, count(db, "trackers"))
+        assertEquals(2, count(db, "band_history"))
+        assertEquals(2, count(db, "log_entries"))
+        db.query("SELECT trackerId, effectiveFrom, lower FROM band_history ORDER BY id").use {
+            it.moveToFirst()
+            assertEquals(1L, it.getLong(0))
+            assertEquals(20300L, it.getLong(1))
+            assertEquals(3.0, it.getDouble(2), 0.0)
+            it.moveToNext()
+            assertEquals(5.0, it.getDouble(2), 0.0)
+        }
+        db.query("SELECT name FROM pragma_table_info('band_history') WHERE name = 'upper'").use { assertEquals(0, it.count) }
+        db.query("SELECT sum(amount) FROM log_entries").use { it.moveToFirst(); assertEquals(16.5, it.getDouble(0), 0.0) }
+        db.query("PRAGMA foreign_key_check").use { assertEquals(0, it.count) }
+        db.close()
+    }
+
+    @Test fun v1ToV6_fullChain_opensWithTheAppsBuilder() = runBlocking {
         helper.createDatabase(dbName, 1).apply {
             execSQL("INSERT INTO groups (id, name, color, sortOrder) VALUES (1, 'Study', 5, 0)")
             execSQL(

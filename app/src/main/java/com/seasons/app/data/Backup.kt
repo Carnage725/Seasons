@@ -10,7 +10,7 @@ import java.time.LocalDate
 // Backup file (JSON) and log export (CSV). Pure apart from org.json, so every rule is unit-tested.
 
 const val BACKUP_APP_NAME = "Seasons"
-const val BACKUP_VERSION = 2
+const val BACKUP_VERSION = 3
 
 data class BackupData(
     val settings: Settings?,
@@ -67,8 +67,7 @@ fun BackupData.toJson(exportedAt: Instant): String {
                     .put("id", it.id)
                     .put("trackerId", it.trackerId)
                     .put("effectiveFrom", it.effectiveFrom.toString())
-                    .put("lower", it.lower)
-                    .put("upper", it.upper),
+                    .put("lower", it.lower),
             )
         }
     })
@@ -202,13 +201,12 @@ private fun parseRoot(root: JSONObject): BackupData {
             trackerId = it.getLong("trackerId"),
             effectiveFrom = it.dateValue("effectiveFrom"),
             lower = it.getDouble("lower"),
-            upper = it.getDouble("upper"),
         )
     }
     requireUniqueIds("band row", bands.map { it.id })
     bands.forEach { b ->
         if (b.trackerId !in trackerIds) fail("A band row points to a tracker that is not in the file.")
-        if (!b.lower.isFinite() || !b.upper.isFinite() || b.lower < 0.0 || b.upper < b.lower) fail("A band row has invalid bounds.")
+        if (!b.lower.isFinite() || b.lower < 0.0) fail("A band row has an invalid minimum.")
     }
     if (bands.map { it.trackerId to it.effectiveFrom }.toSet().size != bands.size) {
         fail("A tracker has two band rows for the same date.")

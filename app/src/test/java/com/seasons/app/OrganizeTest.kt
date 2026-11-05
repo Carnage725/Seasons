@@ -59,7 +59,7 @@ class OrganizeTest {
         val t = tracker(1, start = d(-10)).copy(
             status = TrackerStatus.COMPLETED, completedDate = d(-6), bandPeriod = BandPeriod.DAILY,
         )
-        val bands = listOf(BandHistory(trackerId = 1, effectiveFrom = d(-10), lower = 5.0, upper = 9.0))
+        val bands = listOf(BandHistory(trackerId = 1, effectiveFrom = d(-10), lower = 5.0))
         // -10: 5 ok, -9: 4 below lower (breaks), -8: 6 ok, -7: 9 ok (over nothing), -6: 5 ok -> best run 3
         val logs = listOf(log(-10, 5.0), log(-9, 4.0), log(-8, 6.0), log(-7, 9.0), log(-6, 5.0))
         assertEquals(3, buildTrophy(t, logs, bands, today).bestStreak)

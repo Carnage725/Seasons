@@ -37,13 +37,12 @@ fun renderBarChartBitmap(model: BarChartModel, trackerColor: Int, widthPx: Int, 
     fun y(value: Double) = topPad + plotH * (1f - (value / model.maxY).toFloat())
     val baseY = y(0.0)
 
-    // Band stripe, stepping as the band changes. The extra pixel hides seams between days.
-    fill.color = grey3
+    // Minimum line, stepping as the band changes. The extra pixel hides seams between days.
+    fill.color = grey1
     model.bars.forEachIndexed { i, bar ->
-        if (bar.lower != null && bar.upper != null) {
-            val top = y(bar.upper)
-            val bottom = maxOf(y(bar.lower), top + 2f * density)
-            canvas.drawRect(RectF(i * slot, top, (i + 1) * slot + 1f, bottom), fill)
+        if (bar.lower != null) {
+            val lineY = y(bar.lower)
+            canvas.drawRect(RectF(i * slot, lineY - density, (i + 1) * slot + 1f, lineY + density), fill)
         }
     }
 
@@ -68,11 +67,11 @@ fun renderBarChartBitmap(model: BarChartModel, trackerColor: Int, widthPx: Int, 
     canvas.drawText(valueText, (n - 1) * slot + slot / 2f, y(last.value) - 4f * density, text)
     text.isFakeBoldText = false
 
-    // The band range, labeled directly at the right end of the stripe.
-    if (model.bandLabel != null && last.lower != null && last.upper != null) {
+    // The minimum, labeled directly at the right end of the line.
+    if (model.bandLabel != null && last.lower != null) {
         text.color = grey1
         text.textAlign = Paint.Align.LEFT
-        canvas.drawText(model.bandLabel, plotW + 4f * density, y((last.lower + last.upper) / 2.0) + textHeight / 4f, text)
+        canvas.drawText(model.bandLabel, plotW + 4f * density, y(last.lower) + textHeight / 4f, text)
     }
 
     text.color = grey1

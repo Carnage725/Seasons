@@ -115,12 +115,11 @@ fun BarChart(model: BarChartModel, color: Color, description: String, modifier: 
         fun y(v: Double) = topPad + plotH * (1f - (v / model.maxY).toFloat())
         val baseY = y(0.0)
 
-        // Band stripe: steps as the band changes. Each bar gets its own slice.
+        // Minimum line: steps as the band changes. Each bar gets its own slice.
         model.bars.forEachIndexed { i, bar ->
-            if (bar.lower != null && bar.upper != null) {
-                val top = y(bar.upper)
-                val bottom = y(bar.lower)
-                drawRect(Grey3, Offset(i * slot, top), Size(slot + 1f, maxOf(bottom - top, 2.dp.toPx()))) // +1px hides seams
+            if (bar.lower != null) {
+                val lineY = y(bar.lower)
+                drawRect(Grey1, Offset(i * slot, lineY - 1.dp.toPx()), Size(slot + 1f, 2.dp.toPx())) // +1px hides seams
             }
         }
 
@@ -142,9 +141,9 @@ fun BarChart(model: BarChartModel, color: Color, description: String, modifier: 
         val lastCenter = (n - 1) * slot + slot / 2f
         label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
 
-        // Band range, labeled directly at the right end of the stripe.
-        if (model.bandLabel != null && last.lower != null && last.upper != null) {
-            label(measurer, model.bandLabel, Grey1, plotW + 6.dp.toPx(), y((last.lower + last.upper) / 2.0) - 7.dp.toPx())
+        // Minimum, labeled directly at the right end of the line.
+        if (model.bandLabel != null && last.lower != null) {
+            label(measurer, model.bandLabel, Grey1, plotW + 6.dp.toPx(), y(last.lower) - 7.dp.toPx())
         }
 
         label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())

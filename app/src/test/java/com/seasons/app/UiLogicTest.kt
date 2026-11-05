@@ -58,9 +58,8 @@ class UiLogicTest {
         deadline: LocalDate? = null,
         band: BandPeriod = BandPeriod.NONE,
         lower: String = "",
-        upper: String = "",
         start: LocalDate = today,
-    ) = TrackerFormInput(name, unit, type, target, deadline, band, lower, upper, start)
+    ) = TrackerFormInput(name, unit, type, target, deadline, band, lower, start)
 
     @Test fun validate_validGoal() = assertNull(validateTracker(input(), today, false))
 
@@ -81,7 +80,7 @@ class UiLogicTest {
     }
 
     @Test fun validate_goalCannotUseWeeklyBand() {
-        val i = input(band = BandPeriod.WEEKLY, lower = "3", upper = "5")
+        val i = input(band = BandPeriod.WEEKLY, lower = "3")
         assertNotNull(validateTracker(i, today, false))
     }
 
@@ -91,23 +90,22 @@ class UiLogicTest {
     }
 
     @Test fun validate_ongoingDailyBand_ok_andNoTargetNeeded() {
-        val i = input(type = TrackerType.ONGOING, target = "", band = BandPeriod.DAILY, lower = "3", upper = "6")
+        val i = input(type = TrackerType.ONGOING, target = "", band = BandPeriod.DAILY, lower = "3")
         assertNull(validateTracker(i, today, false))
     }
 
     @Test fun validate_bandBounds() {
         val base = input(type = TrackerType.ONGOING, band = BandPeriod.DAILY)
-        assertNotNull(validateTracker(base.copy(lower = "", upper = "5"), today, false))
-        assertNotNull(validateTracker(base.copy(lower = "5", upper = ""), today, false))
-        assertNotNull(validateTracker(base.copy(lower = "6", upper = "5"), today, false))
-        assertNotNull(validateTracker(base.copy(lower = "-1", upper = "5"), today, false))
-        assertNull(validateTracker(base.copy(lower = "5", upper = "5"), today, false))
+        assertNotNull(validateTracker(base.copy(lower = ""), today, false))
+        assertNotNull(validateTracker(base.copy(lower = "-1"), today, false))
+        assertNull(validateTracker(base.copy(lower = "5"), today, false))
+        assertNull(validateTracker(base.copy(lower = "0"), today, false))
     }
 
     @Test fun validate_weeklyBandMax7() {
         val base = input(type = TrackerType.ONGOING, band = BandPeriod.WEEKLY, target = "")
-        assertNotNull(validateTracker(base.copy(lower = "5", upper = "8"), today, false))
-        assertNull(validateTracker(base.copy(lower = "5", upper = "7"), today, false))
+        assertNotNull(validateTracker(base.copy(lower = "8"), today, false))
+        assertNull(validateTracker(base.copy(lower = "7"), today, false))
     }
 
     @Test fun validate_futureStartDate() {
@@ -115,7 +113,7 @@ class UiLogicTest {
     }
 
     @Test fun validate_editingSkipsBandAndStartChecks() {
-        val i = input(type = TrackerType.ONGOING, target = "", band = BandPeriod.DAILY, lower = "", upper = "")
+        val i = input(type = TrackerType.ONGOING, target = "", band = BandPeriod.DAILY, lower = "")
         assertNull(validateTracker(i, today, true))
     }
 
@@ -147,16 +145,16 @@ class UiLogicTest {
     }
 
     @Test fun homeRow_dailyBand_belowLowerNotMet() {
-        val bands = listOf(Band(today.minusDays(30), 3.0, 6.0))
+        val bands = listOf(Band(today.minusDays(30), 3.0))
         val t = tracker(TrackerType.ONGOING, BandPeriod.DAILY, null)
         val row = buildHomeRow(t, listOf(log(0, 2.0), log(1, 3.0), log(2, 3.0)), bands, today)
         assertFalse(row.metToday)
         assertEquals(2, row.streak) // today not met yet, counts back from yesterday
-        assertEquals(2f / 6f, row.progress, 1e-6f)
+        assertEquals(2f / 3f, row.progress, 1e-6f)
     }
 
     @Test fun homeRow_dailyBand_metToday() {
-        val bands = listOf(Band(today.minusDays(30), 3.0, 6.0))
+        val bands = listOf(Band(today.minusDays(30), 3.0))
         val t = tracker(TrackerType.ONGOING, BandPeriod.DAILY, null)
         val row = buildHomeRow(t, listOf(log(0, 3.0)), bands, today)
         assertTrue(row.metToday)
@@ -164,7 +162,7 @@ class UiLogicTest {
     }
 
     @Test fun homeRow_weekly_streakCountsWeeks() {
-        val bands = listOf(Band(today.minusDays(30), 2.0, 5.0))
+        val bands = listOf(Band(today.minusDays(30), 2.0))
         val t = tracker(TrackerType.ONGOING, BandPeriod.WEEKLY, null)
         // Mon Sep 28 + Tue Sep 29 = last week met. This week unmet so far.
         val logs = listOf(log(9, 1.0), log(8, 1.0))

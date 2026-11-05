@@ -21,16 +21,16 @@ class StatsTest {
     private val today = LocalDate.of(2026, 10, 7)
     private fun day(offset: Int): LocalDate = today.plusDays(offset.toLong())
     private fun totals(vararg pairs: Pair<Int, Double>) = pairs.associate { day(it.first) to it.second }
-    private fun band(from: LocalDate, lower: Double, upper: Double) = Band(from, lower, upper)
+    private fun band(from: LocalDate, lower: Double) = Band(from, lower)
 
     // ---------- bandOn ----------
 
     @Test fun bandOn_noRowYet_isNull() {
-        assertNull(bandOn(listOf(band(day(0), 2.0, 5.0)), day(-1)))
+        assertNull(bandOn(listOf(band(day(0), 2.0)), day(-1)))
     }
 
     @Test fun bandOn_picksLatestEffectiveFromNotAfterDate() {
-        val bands = listOf(band(day(-20), 2.0, 5.0), band(day(-5), 4.0, 8.0))
+        val bands = listOf(band(day(-20), 2.0), band(day(-5), 4.0))
         assertEquals(2.0, bandOn(bands, day(-6))!!.lower, 0.0)
         assertEquals(4.0, bandOn(bands, day(-5))!!.lower, 0.0)
         assertEquals(4.0, bandOn(bands, day(0))!!.lower, 0.0)
@@ -96,20 +96,20 @@ class StatsTest {
     }
 
     @Test fun streak_withBand_belowLowerDoesNotCount() {
-        val bands = listOf(band(start, 3.0, 6.0))
+        val bands = listOf(band(start, 3.0))
         val s = dailyStreaks(totals(0 to 3.0, -1 to 2.0, -2 to 5.0), bands, true, start, today)
         assertEquals(1, s.current) // -1 is below lower and breaks it
     }
 
-    @Test fun streak_overUpperBound_stillCounts() {
-        val bands = listOf(band(start, 3.0, 6.0))
+    @Test fun streak_wellOverMinimum_stillCounts() {
+        val bands = listOf(band(start, 3.0))
         val s = dailyStreaks(totals(0 to 50.0, -1 to 7.0, -2 to 3.0), bands, true, start, today)
         assertEquals(3, s.current)
     }
 
     @Test fun streak_bandChangesMidStreak_eachDayUsesItsOwnBand() {
         // lower 2 until day(-2), lower 5 from day(-1). 3 meets the old band but not the new one.
-        val bands = listOf(band(start, 2.0, 4.0), band(day(-1), 5.0, 8.0))
+        val bands = listOf(band(start, 2.0), band(day(-1), 5.0))
         val t = totals(-4 to 3.0, -3 to 3.0, -2 to 3.0, -1 to 5.0, 0 to 3.0)
         val s = dailyStreaks(t, bands, true, start, today)
         // today (3 < 5) not met yet -> look to yesterday. Run is days -4..-1 = 4.
@@ -118,7 +118,7 @@ class StatsTest {
     }
 
     @Test fun streak_bandChangeBreaksStreak() {
-        val bands = listOf(band(start, 2.0, 4.0), band(day(-1), 5.0, 8.0))
+        val bands = listOf(band(start, 2.0), band(day(-1), 5.0))
         val t = totals(-3 to 3.0, -2 to 3.0, -1 to 3.0, 0 to 5.0)
         val s = dailyStreaks(t, bands, true, start, today)
         assertEquals(1, s.current) // -1 now needs 5
@@ -163,7 +163,7 @@ class StatsTest {
     private fun active(vararg dates: LocalDate) = dates.associateWith { 1.0 }
 
     @Test fun weekly_weeksMeetingLowerCount() {
-        val bands = listOf(band(weekStart, 3.0, 7.0))
+        val bands = listOf(band(weekStart, 3.0))
         // Last week: 3 active days. Week before: 3 active days. This week: 1 so far (unfinished).
         val t = active(d(9, 28), d(9, 29), d(9, 30), d(9, 21), d(9, 22), d(9, 23), d(10, 5))
         val s = weeklyStreaks(t, bands, weekStart, today)
@@ -172,14 +172,14 @@ class StatsTest {
     }
 
     @Test fun weekly_currentWeekCountsOnceMet() {
-        val bands = listOf(band(weekStart, 2.0, 7.0))
+        val bands = listOf(band(weekStart, 2.0))
         val t = active(d(9, 28), d(9, 29), d(10, 5), d(10, 6))
         val s = weeklyStreaks(t, bands, weekStart, today)
         assertEquals(2, s.current)
     }
 
     @Test fun weekly_missedFinishedWeekBreaksStreak() {
-        val bands = listOf(band(weekStart, 3.0, 7.0))
+        val bands = listOf(band(weekStart, 3.0))
         // Two weeks ago met, last week only 2 days, this week met.
         val t = active(d(9, 21), d(9, 22), d(9, 23), d(9, 28), d(9, 29), d(10, 5), d(10, 6), d(10, 7))
         val s = weeklyStreaks(t, bands, weekStart, today)
@@ -188,21 +188,21 @@ class StatsTest {
     }
 
     @Test fun weekly_zeroAmountDayIsNotActive() {
-        val bands = listOf(band(weekStart, 1.0, 7.0))
+        val bands = listOf(band(weekStart, 1.0))
         val t = mapOf(d(9, 28) to 0.0)
         val s = weeklyStreaks(t, bands, weekStart, today)
         assertEquals(0, s.current)
     }
 
     @Test fun weekly_noLogsAtAll_isZero() {
-        val s = weeklyStreaks(emptyMap(), listOf(band(weekStart, 3.0, 7.0)), weekStart, today)
+        val s = weeklyStreaks(emptyMap(), listOf(band(weekStart, 3.0)), weekStart, today)
         assertEquals(0, s.current)
         assertEquals(0, s.best)
         assertEquals(0.0, s.average, 0.0)
     }
 
     @Test fun weekly_startedThisWeek_notMetYet_isZero() {
-        val bands = listOf(band(today, 3.0, 7.0))
+        val bands = listOf(band(today, 3.0))
         val s = weeklyStreaks(emptyMap(), bands, today, today)
         assertEquals(0, s.current)
     }

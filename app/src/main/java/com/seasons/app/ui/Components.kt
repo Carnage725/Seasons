@@ -267,18 +267,16 @@ fun FormDialog(
 fun ChangeBandDialog(
     period: BandPeriod,
     initialLower: Double?,
-    initialUpper: Double?,
     startDate: LocalDate,
     today: LocalDate,
-    onSave: (LocalDate, Double, Double) -> Unit,
+    onSave: (LocalDate, Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val isNew = initialLower == null
     var lower by rememberSaveable { mutableStateOf(initialLower?.let { formatAmount(it) } ?: "") }
-    var upper by rememberSaveable { mutableStateOf(initialUpper?.let { formatAmount(it) } ?: "") }
     var date by rememberSaveable { mutableStateOf(today) }
     var picking by rememberSaveable { mutableStateOf(false) }
-    val error = validateBandBounds(period, lower, upper)
+    val error = validateBandBounds(period, lower)
     val focus = rememberAutoFocus()
 
     if (picking) {
@@ -296,30 +294,19 @@ fun ChangeBandDialog(
         confirmText = "Save",
         confirmEnabled = error == null,
         onConfirm = {
-            onSave(date, parseAmount(lower)!!, parseAmount(upper)!!)
+            onSave(date, parseAmount(lower)!!)
             onDismiss()
         },
         onDismiss = onDismiss,
     ) {
-        Row {
-            OutlinedTextField(
-                value = lower,
-                onValueChange = { lower = it },
-                singleLine = true,
-                label = { Text("Lower") },
-                modifier = Modifier.weight(1f).focusRequester(focus),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            )
-            Spacer(Modifier.width(12.dp))
-            OutlinedTextField(
-                value = upper,
-                onValueChange = { upper = it },
-                singleLine = true,
-                label = { Text("Upper") },
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            )
-        }
+        OutlinedTextField(
+            value = lower,
+            onValueChange = { lower = it },
+            singleLine = true,
+            label = { Text("Minimum") },
+            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        )
         Text(
             if (period == BandPeriod.WEEKLY) "active days per week" else "per day",
             color = Grey1,
@@ -328,7 +315,7 @@ fun ChangeBandDialog(
         Text("Effective from", color = Grey1, style = MaterialTheme.typography.labelLarge)
         TextButton(onClick = { picking = true }) { Text(formatDate(date, today)) }
         Text("Earlier days keep their old band.", color = Grey1, style = MaterialTheme.typography.bodySmall)
-        if (error != null && (lower.isNotBlank() || upper.isNotBlank())) Text(error, color = Amber)
+        if (error != null && lower.isNotBlank()) Text(error, color = Amber)
     }
 }
 

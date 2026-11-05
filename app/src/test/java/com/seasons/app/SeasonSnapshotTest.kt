@@ -144,7 +144,7 @@ class SeasonSnapshotTest {
     }
 
     @Test fun payload_bestStreakUsesTheDailyBand() {
-        val bands = listOf(BandHistory(trackerId = 1, effectiveFrom = start, lower = 3.0, upper = 6.0))
+        val bands = listOf(BandHistory(trackerId = 1, effectiveFrom = start, lower = 3.0))
         // days 0-2 meet it, day 3 has 2 (below lower), days 4-5 meet it -> best 3
         val logs = listOf(log(1, 0, 3.0), log(1, 1, 4.0), log(1, 2, 9.0), log(1, 3, 2.0), log(1, 4, 3.0), log(1, 5, 3.0))
         val p = buildSeasonPayload(listOf(tracker(1, band = BandPeriod.DAILY)), logs, bands, start, windowEnd, today)
@@ -153,7 +153,7 @@ class SeasonSnapshotTest {
 
     @Test fun payload_weeklyTrackerStreakIsInWeeks() {
         // 2026-01-01 is a Thursday. Weekly band 2: week of Dec 29 (Thu Jan 1, Fri Jan 2), week of Jan 5 (Mon, Tue).
-        val bands = listOf(BandHistory(trackerId = 1, effectiveFrom = start, lower = 2.0, upper = 5.0))
+        val bands = listOf(BandHistory(trackerId = 1, effectiveFrom = start, lower = 2.0))
         val logs = listOf(log(1, 0, 1.0), log(1, 1, 1.0), log(1, 4, 1.0), log(1, 5, 1.0))
         val p = buildSeasonPayload(listOf(tracker(1, band = BandPeriod.WEEKLY)), logs, bands, start, windowEnd, today)
         val stat = p.trackers.single()

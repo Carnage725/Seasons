@@ -52,22 +52,22 @@ class SummaryTest {
     }
 
     @Test fun ongoingDailyHeader_todayVsBand() {
-        val bands = listOf(Band(start, 3.0, 6.0))
+        val bands = listOf(Band(start, 3.0))
         val s = buildTrackerSummary(ongoing(BandPeriod.DAILY), listOf(log(0, 2.0), log(0, 3.0)), bands, today)
-        assertEquals("5 / 3–6 laps", s.headline)
+        assertEquals("5 / 3 laps", s.headline)
         assertEquals("today", s.subline)
-        assertEquals(5f / 6f, s.progress, 1e-6f)
+        assertEquals(1f, s.progress, 1e-6f) // over the minimum: capped at 100%
         assertNull(s.needLine)
-        assertEquals("Today 5 laps · band 3–6", s.todayLine)
+        assertEquals("Today 5 laps · minimum 3", s.todayLine)
     }
 
     @Test fun ongoingWeeklyHeader_activeDaysThisWeek() {
-        val bands = listOf(Band(start, 3.0, 5.0))
+        val bands = listOf(Band(start, 3.0))
         // Mon Oct 5 and Wed Oct 7 are active this week. Sun Oct 4 is last week.
         val s = buildTrackerSummary(ongoing(BandPeriod.WEEKLY), listOf(log(2, 1.0), log(0, 1.0), log(3, 1.0)), bands, today)
-        assertEquals("2 / 3–5 days", s.headline)
+        assertEquals("2 / 3 days", s.headline)
         assertEquals("active this week", s.subline)
-        assertEquals(0.4f, s.progress, 1e-6f)
+        assertEquals(2f / 3f, s.progress, 1e-6f)
         assertEquals("weeks", s.streaks.unit)
     }
 
@@ -96,7 +96,7 @@ class SummaryTest {
 
     @Test fun needLine_noDeadline_orOngoing_orDone_hasNoLine() {
         assertNull(buildTrackerSummary(goal(), listOf(log(0, 7.0)), emptyList(), today).needLine)
-        assertNull(buildTrackerSummary(ongoing(BandPeriod.DAILY), emptyList(), listOf(Band(start, 3.0, 6.0)), today).needLine)
+        assertNull(buildTrackerSummary(ongoing(BandPeriod.DAILY), emptyList(), listOf(Band(start, 3.0)), today).needLine)
         assertNull(buildTrackerSummary(goal(deadline = today.plusDays(5), target = 10.0), listOf(log(0, 10.0)), emptyList(), today).needLine)
     }
 
@@ -138,11 +138,11 @@ class SummaryTest {
     // ---------- change-band validation ----------
 
     @Test fun bandBounds_validation() {
-        assertNull(validateBandBounds(BandPeriod.NONE, "", ""))
-        assertNotNull(validateBandBounds(BandPeriod.DAILY, "", "5"))
-        assertNotNull(validateBandBounds(BandPeriod.DAILY, "6", "5"))
-        assertNull(validateBandBounds(BandPeriod.DAILY, "3", "6"))
-        assertNotNull(validateBandBounds(BandPeriod.WEEKLY, "3", "8"))
-        assertNull(validateBandBounds(BandPeriod.WEEKLY, "3", "7"))
+        assertNull(validateBandBounds(BandPeriod.NONE, ""))
+        assertNotNull(validateBandBounds(BandPeriod.DAILY, ""))
+        assertNotNull(validateBandBounds(BandPeriod.DAILY, "-1"))
+        assertNull(validateBandBounds(BandPeriod.DAILY, "6"))
+        assertNotNull(validateBandBounds(BandPeriod.WEEKLY, "8"))
+        assertNull(validateBandBounds(BandPeriod.WEEKLY, "7"))
     }
 }
