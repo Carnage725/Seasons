@@ -41,25 +41,49 @@ data class StreakStats(val current: Int, val best: Int, val average: Double)
 fun dayMet(total: Double, band: Band?): Boolean =
     if (band != null) total >= band.lower else total > 0.0
 
+/** One flag per day from the start date up to the last finished-or-met day. Empty if there is none. */
+private fun dailyFlags(
+    totals: Map<LocalDate, Double>,
+    bands: List<Band>,
+    useBand: Boolean,
+    startDate: LocalDate,
+    today: LocalDate,
+): List<Boolean> {
+    fun counts(d: LocalDate) = dayMet(totals[d] ?: 0.0, if (useBand) bandOn(bands, d) else null)
+
+    // Today still in progress never breaks a streak: if not met yet, look only up to yesterday.
+    val lastDay = if (counts(today)) today else today.minusDays(1)
+    if (lastDay.isBefore(startDate)) return emptyList()
+
+    return generateSequence(startDate) { it.plusDays(1) }
+        .takeWhile { !it.isAfter(lastDay) }
+        .map { counts(it) }
+        .toList()
+}
+
 fun dailyStreaks(
     totals: Map<LocalDate, Double>,
     bands: List<Band>,
     useBand: Boolean,
     startDate: LocalDate,
     today: LocalDate,
-): StreakStats {
-    fun counts(d: LocalDate) = dayMet(totals[d] ?: 0.0, if (useBand) bandOn(bands, d) else null)
+): StreakStats = streaksFromFlags(dailyFlags(totals, bands, useBand, startDate, today))
 
-    // Today still in progress never breaks a streak: if not met yet, look only up to yesterday.
-    val lastDay = if (counts(today)) today else today.minusDays(1)
-    if (lastDay.isBefore(startDate)) return StreakStats(0, 0, 0.0)
+/** One streak: first and last day (for weekly streaks: Monday of the first week, Sunday of the last), length in days or weeks. */
+data class StreakRun(val start: LocalDate, val end: LocalDate, val length: Int, val current: Boolean)
 
-    val flags = generateSequence(startDate) { it.plusDays(1) }
-        .takeWhile { !it.isAfter(lastDay) }
-        .map { counts(it) }
-        .toList()
-    return streaksFromFlags(flags)
-}
+/** All daily streaks, oldest first. Same rule as [dailyStreaks]. */
+fun dailyStreakRuns(
+    totals: Map<LocalDate, Double>,
+    bands: List<Band>,
+    useBand: Boolean,
+    startDate: LocalDate,
+    today: LocalDate,
+): List<StreakRun> = runsFromFlags(
+    dailyFlags(totals, bands, useBand, startDate, today),
+    startOf = { startDate.plusDays(it.toLong()) },
+    endOf = { startDate.plusDays(it.toLong()) },
+)
 
 // ---------- Weekly streaks (Mon-Sun) ----------
 
@@ -68,7 +92,29 @@ fun weeklyStreaks(
     bands: List<Band>,
     startDate: LocalDate,
     today: LocalDate,
-): StreakStats {
+): StreakStats = streaksFromFlags(weeklyFlags(totals, bands, startDate, today))
+
+/** All weekly streaks, oldest first. Same rule as [weeklyStreaks]. */
+fun weeklyStreakRuns(
+    totals: Map<LocalDate, Double>,
+    bands: List<Band>,
+    startDate: LocalDate,
+    today: LocalDate,
+): List<StreakRun> {
+    val firstMonday = startDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    return runsFromFlags(
+        weeklyFlags(totals, bands, startDate, today),
+        startOf = { firstMonday.plusWeeks(it.toLong()) },
+        endOf = { firstMonday.plusWeeks(it.toLong()).plusDays(6) },
+    )
+}
+
+private fun weeklyFlags(
+    totals: Map<LocalDate, Double>,
+    bands: List<Band>,
+    startDate: LocalDate,
+    today: LocalDate,
+): List<Boolean> {
     val firstMonday = startDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val thisMonday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
@@ -84,13 +130,27 @@ fun weeklyStreaks(
 
     // The current, unfinished week never breaks the streak: if not met yet, leave it out.
     val lastMonday = if (weekMet(thisMonday)) thisMonday else thisMonday.minusWeeks(1)
-    if (lastMonday.isBefore(firstMonday)) return StreakStats(0, 0, 0.0)
+    if (lastMonday.isBefore(firstMonday)) return emptyList()
 
-    val flags = generateSequence(firstMonday) { it.plusWeeks(1) }
+    return generateSequence(firstMonday) { it.plusWeeks(1) }
         .takeWhile { !it.isAfter(lastMonday) }
         .map { weekMet(it) }
         .toList()
-    return streaksFromFlags(flags)
+}
+
+/** Turns met/not-met flags into runs. [startOf] and [endOf] give the dates of flag number i. */
+private fun runsFromFlags(flags: List<Boolean>, startOf: (Int) -> LocalDate, endOf: (Int) -> LocalDate): List<StreakRun> {
+    val runs = mutableListOf<StreakRun>()
+    var first = -1
+    flags.forEachIndexed { i, met ->
+        if (met && first < 0) first = i
+        if (!met && first >= 0) {
+            runs.add(StreakRun(startOf(first), endOf(i - 1), i - first, current = false))
+            first = -1
+        }
+    }
+    if (first >= 0) runs.add(StreakRun(startOf(first), endOf(flags.lastIndex), flags.size - first, current = true))
+    return runs
 }
 
 /** Current = trailing run. Best = longest run. Average = mean length of all runs >= 1. */

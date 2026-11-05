@@ -2,6 +2,7 @@ package com.seasons.app
 
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
+import com.seasons.app.domain.dailyStreakRuns
 import com.seasons.app.domain.dailyStreaks
 import com.seasons.app.domain.daysRemaining
 import com.seasons.app.domain.neededPerDay
@@ -10,6 +11,7 @@ import com.seasons.app.domain.heatmapColumns
 import com.seasons.app.domain.seasonDay
 import com.seasons.app.domain.seasonEndDate
 import com.seasons.app.domain.seasonNumber
+import com.seasons.app.domain.weeklyStreakRuns
 import com.seasons.app.domain.weeklyStreaks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -240,5 +242,56 @@ class StatsTest {
         assertEquals(11, heatmapColumns(77))
         assertEquals(13, heatmapColumns(90))
         assertEquals(53, heatmapColumns(365))
+    }
+
+    // ---------- streak runs (the recent streaks chart) ----------
+
+    @Test fun runs_listEveryStreakOldestFirst_andMarkTheCurrentOne() {
+        // days -9..-7 (3), gap, -5..-4 (2), gap, -2..0 (3, current)
+        val t = totals(-9 to 1.0, -8 to 1.0, -7 to 1.0, -5 to 1.0, -4 to 1.0, -2 to 1.0, -1 to 1.0, 0 to 1.0)
+        val runs = dailyStreakRuns(t, emptyList(), false, day(-9), today)
+        assertEquals(listOf(3, 2, 3), runs.map { it.length })
+        assertEquals(listOf(false, false, true), runs.map { it.current })
+        assertEquals(day(-9), runs[0].start)
+        assertEquals(day(-7), runs[0].end)
+        assertEquals(day(-2), runs[2].start)
+        assertEquals(day(0), runs[2].end)
+    }
+
+    @Test fun runs_agreeWithTheStreakStats() {
+        val t = totals(-9 to 1.0, -8 to 1.0, -7 to 1.0, -5 to 1.0, -4 to 1.0, -2 to 1.0, -1 to 1.0)
+        val runs = dailyStreakRuns(t, emptyList(), false, day(-9), today)
+        val stats = dailyStreaks(t, emptyList(), false, day(-9), today)
+        assertEquals(stats.best, runs.maxOf { it.length })
+        assertEquals(stats.current, runs.last().length) // today not logged: the run up to yesterday is current
+        assertEquals(runs.map { it.length }.average(), stats.average, 1e-9)
+    }
+
+    @Test fun runs_todayNotMetYet_doesNotEndTheCurrentRun() {
+        val runs = dailyStreakRuns(totals(-2 to 1.0, -1 to 1.0), emptyList(), false, day(-3), today)
+        assertEquals(1, runs.size)
+        assertEquals(true, runs[0].current)
+        assertEquals(day(-1), runs[0].end)
+    }
+
+    @Test fun runs_noStreak_isEmpty() {
+        assertEquals(0, dailyStreakRuns(emptyMap(), emptyList(), false, day(-5), today).size)
+    }
+
+    @Test fun runs_withBand_belowMinimumBreaksTheRun() {
+        val bands = listOf(band(day(-5), 3.0))
+        val runs = dailyStreakRuns(totals(-3 to 3.0, -2 to 2.0, -1 to 4.0, 0 to 5.0), bands, true, day(-5), today)
+        assertEquals(listOf(1, 2), runs.map { it.length })
+    }
+
+    @Test fun weeklyRuns_useMondayToSunday() {
+        // Today Wed Oct 7. Weeks: Sep 21, Sep 28, Oct 5 (this week). Active day in each -> 3 weeks, band 1.
+        val t = totals(-16 to 1.0, -9 to 1.0, -2 to 1.0)
+        val runs = weeklyStreakRuns(t, listOf(band(day(-16), 1.0)), day(-16), today)
+        assertEquals(1, runs.size)
+        assertEquals(3, runs[0].length)
+        assertEquals(LocalDate.of(2026, 9, 21), runs[0].start)
+        assertEquals(LocalDate.of(2026, 10, 11), runs[0].end) // Sunday of the current week, after today
+        assertEquals(true, runs[0].current)
     }
 }

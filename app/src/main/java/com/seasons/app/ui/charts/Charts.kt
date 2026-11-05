@@ -339,3 +339,39 @@ fun AveragePaceChart(model: AveragePaceModel, color: Color, description: String,
         label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
     }
 }
+
+// ---------- Recent streaks ----------
+
+private val StreakRow = 30.dp
+
+/** Bars centered, longer = wider. Start date on the left, end date on the right, length inside. Newest on top. */
+@Composable
+fun StreakChart(model: StreakChartModel, color: Color, description: String, modifier: Modifier = Modifier) {
+    val measurer = rememberTextMeasurer()
+    val longest = model.bars.maxOf { it.length }
+    Canvas(
+        modifier.fillMaxWidth().height(StreakRow * model.bars.size).semantics { contentDescription = description },
+    ) {
+        val dateW = 84.dp.toPx()
+        val gap = 8.dp.toPx()
+        val maxBar = size.width - 2 * (dateW + gap)
+        val minBar = 34.dp.toPx()
+        val rowH = StreakRow.toPx()
+        val barH = 22.dp.toPx()
+        val cx = size.width / 2f
+        model.bars.forEachIndexed { i, bar ->
+            val barW = minBar + (maxBar - minBar) * (bar.length - 1).coerceAtLeast(0) / (longest - 1).coerceAtLeast(1)
+            val top = i * rowH + (rowH - barH) / 2f
+            val fill = when {
+                bar.longest -> color
+                bar.current -> color.copy(alpha = 0.55f)
+                else -> Grey3
+            }
+            drawRoundRect(fill, Offset(cx - barW / 2f, top), Size(barW, barH), CornerRadius(3.dp.toPx()))
+            val textColor = if (bar.longest || bar.current) Color.Black else TextMain
+            label(measurer, bar.length.toString(), textColor, cx, top + 2.dp.toPx(), Anchor.CENTER, bold = true)
+            label(measurer, bar.startLabel, Grey1, cx - barW / 2f - gap, top + 2.dp.toPx(), Anchor.END)
+            label(measurer, bar.endLabel, Grey1, cx + barW / 2f + gap, top + 2.dp.toPx())
+        }
+    }
+}

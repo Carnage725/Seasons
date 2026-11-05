@@ -3,6 +3,7 @@ package com.seasons.app.ui.charts
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.Tracker
 import com.seasons.app.domain.Band
+import com.seasons.app.domain.StreakRun
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dayMet
 import com.seasons.app.domain.heatmapColumns
@@ -285,6 +286,42 @@ fun buildAveragePace(
         firstLabel = shortDate(dates.first(), today),
         lastLabel = "Today",
     )
+}
+
+// ---------- Recent streaks ----------
+
+data class StreakBar(
+    val length: Int,
+    val startLabel: String,
+    val endLabel: String,
+    /** Still running (today, or yesterday if today is not met yet). */
+    val current: Boolean,
+    /** The longest of the bars shown. */
+    val longest: Boolean,
+)
+
+data class StreakChartModel(
+    /** Newest first, so the latest streak is at the top. */
+    val bars: List<StreakBar>,
+    val weekly: Boolean,
+)
+
+/** The [limit] most recent streaks out of [runs] (oldest first). Null when there is no streak yet. */
+fun buildStreakChart(runs: List<StreakRun>, today: LocalDate, weekly: Boolean, limit: Int = 10): StreakChartModel? {
+    val recent = runs.takeLast(limit)
+    if (recent.isEmpty()) return null
+    val longest = recent.maxOf { it.length }
+    val bars = recent.reversed().map { r ->
+        // A weekly streak's last week may end after today: show today instead.
+        val end = if (r.end.isAfter(today)) today else r.end
+        StreakBar(r.length, shortDate(r.start, today), shortDate(end, today), r.current, r.length == longest)
+    }
+    return StreakChartModel(bars, weekly)
+}
+
+fun describeStreaks(model: StreakChartModel): String {
+    val unit = if (model.weekly) "weeks" else "days"
+    return "Recent streaks. " + model.bars.joinToString(" ") { "${it.length} $unit, ${it.startLabel} to ${it.endLabel}${if (it.current) ", current" else ""}." }
 }
 
 // ---------- Spoken descriptions (for screen readers) ----------

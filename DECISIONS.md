@@ -251,3 +251,12 @@
 - **Total:** ongoing trackers show **"Total <unit>"** next to Current and Avg streak (all logs, all time). Goals already show done / target in the header, so no extra stat.
 - **Cumulative-pace card dropped** (agreed): same chart as the Goal "Pace" tab.
 - Instrumented tests not run (they wipe app data on the phone).
+
+## Recent streaks chart (board card: streak graph like the picture)
+- **Where:** tracker screen, **below the chart tabs, above History** (moved there on request). Title "Recent streaks (days)", or "(weeks)" for weekly-band trackers.
+- **What:** the **10 most recent streaks**, newest on top (asked for: most recent, not best). Each row: start date on the left, end date on the right, length in the bar. Bar width is the length, centered, relative to the longest shown (with a minimum width so the number fits). **Colors (grey plus the tracker color only):** the longest of the ten in the tracker color, the streak still running at 55% of it, the rest grey. Dates drop the year when it is this year.
+- **Same rule as the streak stats**, so the numbers always agree (tested): a day counts if it meets that day's minimum; a tracker without a band counts any day with a log; weekly trackers count Monday-Sunday weeks. Today never breaks a running streak. This means every tracker with at least one streak gets the chart, banded or not (I first planned banded only).
+- **A weekly streak** runs from the Monday of its first week to the Sunday of its last; the running one is shown ending today.
+- **No streaks yet:** the chart is hidden. Streaks are not stored: they are recomputed from the logs every time, so old data works at once. No database change.
+- **Pure and unit-tested:** `dailyStreakRuns`, `weeklyStreakRuns` (`domain/Stats.kt`, sharing the flag code with the stats), `buildStreakChart`.
+- Instrumented tests not run (they wipe app data on the phone).

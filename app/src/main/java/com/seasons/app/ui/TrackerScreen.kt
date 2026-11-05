@@ -46,6 +46,8 @@ import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChart
 import com.seasons.app.ui.charts.AveragePaceChart
 import com.seasons.app.ui.charts.ChartTabs
+import com.seasons.app.ui.charts.StreakChart
+import com.seasons.app.ui.charts.describeStreaks
 import com.seasons.app.ui.charts.OnTrackChart
 import com.seasons.app.ui.charts.describeBarChart
 import com.seasons.app.ui.charts.describeAveragePace
@@ -263,7 +265,20 @@ fun TrackerScreen(
             }
             // 5. Charts
             item { ChartsSection(ui, color, today) }
-            // 6. History
+            // 6. Recent streaks
+            ui.charts.streaks?.let { streaks ->
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            if (streaks.weekly) "Recent streaks (weeks)" else "Recent streaks (days)",
+                            color = Grey1,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        StreakChart(streaks, color, describeStreaks(streaks))
+                    }
+                }
+            }
+            // 7. History
             item {
                 Text("History", color = Grey1, style = MaterialTheme.typography.labelLarge)
             }

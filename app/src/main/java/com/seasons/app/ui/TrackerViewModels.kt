@@ -3,12 +3,15 @@ package com.seasons.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.seasons.app.data.BandHistory
+import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Tracker
 import com.seasons.app.data.seasonBase
 import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.AveragePaceModel
+import com.seasons.app.ui.charts.StreakChartModel
+import com.seasons.app.ui.charts.buildStreakChart
 import com.seasons.app.ui.charts.BarChartModel
 import com.seasons.app.ui.charts.OnTrackModel
 import com.seasons.app.ui.charts.SeasonModel
@@ -19,6 +22,8 @@ import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
+import com.seasons.app.domain.dailyStreakRuns
+import com.seasons.app.domain.weeklyStreakRuns
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +49,8 @@ data class ChartsData(
     val onTrack: OnTrackModel?,
     /** Trackers with no target: average per day. */
     val pace: AveragePaceModel?,
+    /** The 10 most recent streaks. Null when there is none yet. */
+    val streaks: StreakChartModel?,
 )
 
 class TrackerViewModel(private val repo: Repository, private val trackerId: Long) : ViewModel() {
@@ -77,6 +84,15 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                     },
                     onTrack = if (tracker.type == TrackerType.GOAL) buildOnTrackChart(tracker, totals, today) else null,
                     pace = if (tracker.type == TrackerType.ONGOING) buildAveragePace(tracker, totals, today) else null,
+                    streaks = buildStreakChart(
+                        if (tracker.bandPeriod == BandPeriod.WEEKLY) {
+                            weeklyStreakRuns(totals, bandList, tracker.startDate, today)
+                        } else {
+                            dailyStreakRuns(totals, bandList, tracker.bandPeriod == BandPeriod.DAILY, tracker.startDate, today)
+                        },
+                        today,
+                        weekly = tracker.bandPeriod == BandPeriod.WEEKLY,
+                    ),
                 ),
             )
         }

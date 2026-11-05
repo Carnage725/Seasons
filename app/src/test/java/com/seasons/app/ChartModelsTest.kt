@@ -12,7 +12,9 @@ import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
 import com.seasons.app.ui.charts.barIndexAt
+import com.seasons.app.domain.StreakRun
 import com.seasons.app.ui.charts.buildAveragePace
+import com.seasons.app.ui.charts.buildStreakChart
 import com.seasons.app.ui.charts.shortDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -341,5 +343,34 @@ class ChartModelsTest {
         assertEquals(100.0, a.value, 0.0)
         assertEquals(100.0, b.value, 0.0)
         assertEquals("Target 100", m.lineLabel)
+    }
+
+    // ---------- recent streaks ----------
+
+    private fun run(startOffset: Int, endOffset: Int, current: Boolean = false) =
+        StreakRun(d(startOffset), d(endOffset), endOffset - startOffset + 1, current)
+
+    @Test fun streakChart_newestFirst_longestMarked() {
+        val m = buildStreakChart(listOf(run(-20, -15), run(-10, -9), run(-3, 0, current = true)), today, weekly = false)!!
+        assertEquals(listOf(4, 2, 6), m.bars.map { it.length })
+        assertEquals(listOf(false, false, true), m.bars.map { it.longest })
+        assertEquals(listOf(true, false, false), m.bars.map { it.current })
+    }
+
+    @Test fun streakChart_keepsOnlyTheTenMostRecent() {
+        val runs = (0 until 13).map { run(-100 + it * 5, -100 + it * 5 + 1) }
+        val m = buildStreakChart(runs, today, weekly = false)!!
+        assertEquals(10, m.bars.size)
+        assertEquals(shortDate(d(-100 + 12 * 5), today), m.bars.first().startLabel) // newest on top
+        assertEquals(shortDate(d(-100 + 3 * 5), today), m.bars.last().startLabel) // the 3 oldest are dropped
+    }
+
+    @Test fun streakChart_noStreaks_isNull() {
+        assertNull(buildStreakChart(emptyList(), today, weekly = false))
+    }
+
+    @Test fun streakChart_weeklyEndNeverPastToday() {
+        val m = buildStreakChart(listOf(StreakRun(d(-2), d(4), 1, current = true)), today, weekly = true)!!
+        assertEquals(shortDate(today, today), m.bars[0].endLabel)
     }
 }
