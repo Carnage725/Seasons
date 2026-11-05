@@ -273,6 +273,7 @@ fun ChangeBandDialog(
     onSave: (LocalDate, Double, Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val isNew = initialLower == null
     var lower by rememberSaveable { mutableStateOf(initialLower?.let { formatAmount(it) } ?: "") }
     var upper by rememberSaveable { mutableStateOf(initialUpper?.let { formatAmount(it) } ?: "") }
     var date by rememberSaveable { mutableStateOf(today) }
@@ -291,7 +292,7 @@ fun ChangeBandDialog(
     }
 
     FormDialog(
-        title = "Change band",
+        title = if (isNew) "Add band" else "Change band",
         confirmText = "Save",
         confirmEnabled = error == null,
         onConfirm = {

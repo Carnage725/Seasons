@@ -38,10 +38,23 @@ class Repository(private val db: AppDatabase) {
     /** Permanent. Also deletes the tracker's logs and band history. */
     suspend fun deleteTracker(tracker: Tracker) = trackers.delete(tracker)
 
-    /** Never rewrites history: adds a row. Same effectiveFrom replaces that one row. */
+    /**
+     * Never rewrites history: adds a row. Same effectiveFrom replaces that one row.
+     * A tracker that had no band becomes a daily-band tracker.
+     */
     suspend fun changeBand(trackerId: Long, effectiveFrom: LocalDate, lower: Double, upper: Double) {
-        bands.insert(BandHistory(trackerId = trackerId, effectiveFrom = effectiveFrom, lower = lower, upper = upper))
+        db.withTransaction {
+            val tracker = requireNotNull(trackers.get(trackerId)) { "Tracker $trackerId not found" }
+            if (tracker.bandPeriod == BandPeriod.NONE) {
+                trackers.update(tracker.copy(bandPeriod = BandPeriod.DAILY))
+            }
+            bands.insert(BandHistory(trackerId = trackerId, effectiveFrom = effectiveFrom, lower = lower, upper = upper))
+        }
     }
+
+    /** The band in effect on [date], or null if the tracker has none yet. */
+    suspend fun bandOn(trackerId: Long, date: LocalDate): BandHistory? =
+        bands.getFor(trackerId).lastOrNull { !it.effectiveFrom.isAfter(date) }
 
     /** Backfill allowed: startDate <= date <= today. Returns the new id. */
     suspend fun addLog(trackerId: Long, date: LocalDate, amount: Double, today: LocalDate = LocalDate.now()): Long {

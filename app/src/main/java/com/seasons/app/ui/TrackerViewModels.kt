@@ -2,6 +2,7 @@ package com.seasons.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.seasons.app.data.BandHistory
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Repository
 import com.seasons.app.data.Tracker
@@ -101,9 +102,6 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
         }
     }
 
-    fun changeBand(effectiveFrom: LocalDate, lower: Double, upper: Double) =
-        launchSafely { repo.changeBand(trackerId, effectiveFrom, lower, upper) }
-
     fun deleteLog(entry: LogEntry) = launchSafely { repo.deleteLog(entry) }
 
     private fun launchSafely(block: suspend () -> Unit) {
@@ -119,6 +117,15 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
 
 class FormViewModel(private val repo: Repository) : ViewModel() {
     suspend fun load(id: Long): Tracker? = repo.getTracker(id)
+
+    suspend fun currentBand(id: Long): BandHistory? = repo.bandOn(id, LocalDate.now())
+
+    fun changeBand(trackerId: Long, effectiveFrom: LocalDate, lower: Double, upper: Double, onDone: () -> Unit) {
+        viewModelScope.launch {
+            repo.changeBand(trackerId, effectiveFrom, lower, upper)
+            onDone()
+        }
+    }
 
     fun create(tracker: Tracker, lower: Double?, upper: Double?, onDone: () -> Unit) {
         viewModelScope.launch {

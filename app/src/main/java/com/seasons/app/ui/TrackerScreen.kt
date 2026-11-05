@@ -40,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.ui.charts.BarChart
@@ -69,7 +68,6 @@ fun TrackerScreen(
     var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deletingId by rememberSaveable { mutableStateOf<Long?>(null) }
     var menuOpen by rememberSaveable { mutableStateOf(false) }
-    var changingBand by rememberSaveable { mutableStateOf(false) }
     var confirmArchive by rememberSaveable { mutableStateOf(false) }
 
     if (ui == null) {
@@ -114,17 +112,6 @@ fun TrackerScreen(
                 TextButton(onClick = { vm.archive(ui.tracker, onBack) }) { Text("Archive") }
             },
             dismissButton = { TextButton(onClick = { confirmArchive = false }) { Text("Cancel") } },
-        )
-    }
-    if (changingBand) {
-        ChangeBandDialog(
-            period = t.bandPeriod,
-            initialLower = ui.band?.lower,
-            initialUpper = ui.band?.upper,
-            startDate = t.startDate,
-            today = today,
-            onSave = { date, lower, upper -> vm.changeBand(date, lower, upper) },
-            onDismiss = { changingBand = false },
         )
     }
     if (editingEntry != null) {
@@ -189,15 +176,6 @@ fun TrackerScreen(
                                     onClick = {
                                         menuOpen = false
                                         confirmArchive = true
-                                    },
-                                )
-                            }
-                            if (t.bandPeriod != BandPeriod.NONE) {
-                                DropdownMenuItem(
-                                    text = { Text("Change band") },
-                                    onClick = {
-                                        menuOpen = false
-                                        changingBand = true
                                     },
                                 )
                             }

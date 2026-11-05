@@ -38,11 +38,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.seasons.app.data.BandHistory
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.Tracker
 import com.seasons.app.data.TrackerType
@@ -95,6 +97,29 @@ private fun TrackerFormContent(
     var pickingDeadline by rememberSaveable { mutableStateOf(false) }
     var pickingStart by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var changingBand by rememberSaveable { mutableStateOf(false) }
+    // Bumped after a band save so the Band row reloads.
+    var bandVersion by rememberSaveable { mutableStateOf(0) }
+    val currentBand by produceState<BandHistory?>(null, existing?.id, bandVersion) {
+        value = existing?.let { vm.currentBand(it.id) }
+    }
+
+    if (changingBand && existing != null) {
+        ChangeBandDialog(
+            period = if (bandPeriod == BandPeriod.NONE) BandPeriod.DAILY else bandPeriod,
+            initialLower = currentBand?.lower,
+            initialUpper = currentBand?.upper,
+            startDate = existing.startDate,
+            today = today,
+            onSave = { date, low, up ->
+                vm.changeBand(existing.id, date, low, up) {
+                    if (bandPeriod == BandPeriod.NONE) bandPeriod = BandPeriod.DAILY
+                    bandVersion++
+                }
+            },
+            onDismiss = { changingBand = false },
+        )
+    }
 
     if (confirmDelete && existing != null) {
         AlertDialog(
@@ -182,6 +207,21 @@ private fun TrackerFormContent(
                 }
             }
 
+            if (editing && existing != null) {
+                Label("Band")
+                val band = currentBand
+                val unitText = if (bandPeriod == BandPeriod.WEEKLY) "active days per week" else "per day"
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (band == null) "No band" else "${formatAmount(band.lower)}–${formatAmount(band.upper)} $unitText",
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { changingBand = true }) {
+                        Text(if (bandPeriod == BandPeriod.NONE) "Add band" else "Change band")
+                    }
+                }
+            }
+
             if (!editing) {
                 Label("Band")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -242,6 +282,7 @@ private fun TrackerFormContent(
                                     color = color,
                                     target = if (type == TrackerType.GOAL) parseAmount(target) else null,
                                     deadline = if (type == TrackerType.GOAL) deadline else null,
+                                    bandPeriod = bandPeriod,
                                 ),
                                 onDone,
                             )
