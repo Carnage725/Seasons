@@ -33,7 +33,15 @@ data class BarSpec(
     val lower: Double?,
     /** Drawn dim grey instead of the tracker color. */
     val dim: Boolean,
+    /** Says which day or week the bar is, shown when the bar is tapped. */
+    val label: String = "",
 )
+
+/** Which bar a tap at [x] hits, or null when the tap is outside the plot. */
+fun barIndexAt(x: Float, plotWidth: Float, barCount: Int): Int? {
+    if (barCount <= 0 || plotWidth <= 0f || x < 0f || x >= plotWidth) return null
+    return (x / (plotWidth / barCount)).toInt().coerceIn(0, barCount - 1)
+}
 
 data class BarChartModel(
     val bars: List<BarSpec>,
@@ -56,7 +64,7 @@ fun buildDailyChart(
     val bars = dates.map { d ->
         val value = totals[d] ?: 0.0
         val band = if (daily) bandOn(bands, d) else null
-        BarSpec(value, band?.lower, dim = band != null && value < band.lower)
+        BarSpec(value, band?.lower, dim = band != null && value < band.lower, label = shortDate(d, today))
     }
     val todayBand = if (daily) bandOn(bands, today) else null
     return BarChartModel(
@@ -86,9 +94,9 @@ fun buildWeeklyChart(
             // Same rule as the weekly streak: the band in effect on the week's Monday (or the start date).
             val beforeStart = monday.plusDays(6).isBefore(tracker.startDate)
             val band = if (beforeStart) null else bandOn(bands, laterOf(monday, tracker.startDate))
-            BarSpec(active, band?.lower, dim = false)
+            BarSpec(active, band?.lower, dim = false, label = "Week of ${shortDate(monday, today)}")
         } else {
-            BarSpec(days.sumOf { totals[it] ?: 0.0 }, null, dim = false)
+            BarSpec(days.sumOf { totals[it] ?: 0.0 }, null, dim = false, label = "Week of ${shortDate(monday, today)}")
         }
     }
     val currentBand = if (weekly) bandOn(bands, laterOf(thisMonday, tracker.startDate)) else null

@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextMeasurer
@@ -103,7 +105,19 @@ fun ChartTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 @Composable
 fun BarChart(model: BarChartModel, color: Color, description: String, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
-    Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
+    // Tap a bar to see its value. Tap it again, or another tab's chart, to clear.
+    var selected by remember(model) { mutableStateOf<Int?>(null) }
+    val rightPadPx = with(LocalDensity.current) { 44.dp.toPx() }
+    Canvas(
+        modifier.fillMaxWidth().height(190.dp)
+            .pointerInput(model) {
+                detectTapGestures { offset ->
+                    val hit = barIndexAt(offset.x, size.width - rightPadPx, model.bars.size)
+                    selected = if (hit == null || hit == selected) null else hit
+                }
+            }
+            .semantics { contentDescription = description },
+    ) {
         val rightPad = 44.dp.toPx()
         val topPad = 20.dp.toPx()
         val bottomPad = 22.dp.toPx()
@@ -139,7 +153,16 @@ fun BarChart(model: BarChartModel, color: Color, description: String, modifier: 
         // Only the last bar (today / this week) gets its value.
         val last = model.bars.last()
         val lastCenter = (n - 1) * slot + slot / 2f
-        label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
+        val picked = selected?.takeIf { it in model.bars.indices }
+        if (picked != n - 1) {
+            label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
+        }
+        // The tapped bar: its value above it, which day or week it is in the top left.
+        if (picked != null) {
+            val bar = model.bars[picked]
+            label(measurer, formatAmount(bar.value), TextMain, picked * slot + slot / 2f, y(bar.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
+            label(measurer, bar.label, TextMain, 0f, 0f)
+        }
 
         // Minimum, labeled directly at the right end of the line.
         if (model.bandLabel != null && last.lower != null) {

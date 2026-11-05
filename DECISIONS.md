@@ -237,3 +237,9 @@
 - **Season heatmap:** a day's shade is its total divided by the larger of that day's minimum and the season's best day (was: upper bound). A day with no minimum is unchanged.
 - **Backup format 3.** New files have no `upper`. Format 1 and 2 files import as before: `upper` is read-free and ignored, even when inconsistent (tested). A format 3 file is refused by the old 1.1 app ("made by a newer version"), on purpose, because 1.1 would crash on the missing `upper`. Import now checks only the minimum (finite, not negative).
 - **Weekly minimum** still cannot be above 7.
+
+## Tap a bar to see its value (board card: bar click shows no value)
+- **Daily and Weekly charts:** tap a bar and its value shows above it, and its day ("Oct 5") or week ("Week of Sep 28") shows in the top-left corner. Tap the same bar again to clear it. Only one bar is selected at a time (asked for: tapped bar only). Today's value is still always shown.
+- **Pure and unit-tested:** `barIndexAt` (x position to bar, null outside the plot or over the right-hand label area) and the bar labels. The selection resets when the chart's data changes.
+- **Not changed:** the Season and On track charts, the widget.
+- Instrumented tests not run (they wipe app data on the phone).

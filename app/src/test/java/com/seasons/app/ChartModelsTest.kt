@@ -11,6 +11,7 @@ import com.seasons.app.ui.charts.describeSeason
 import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
+import com.seasons.app.ui.charts.barIndexAt
 import com.seasons.app.ui.charts.shortDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -277,5 +278,29 @@ class ChartModelsTest {
         )
         val without = buildOnTrackChart(goal(), goalLogs, today)!!
         assertEquals("Progress chart. Done 15 of 100 pages.", describeOnTrack(without, "pages"))
+    }
+
+    // ---------- tap a bar ----------
+
+    @Test fun barIndexAt_mapsXToTheBarUnderTheFinger() {
+        assertEquals(0, barIndexAt(0f, 140f, 14))
+        assertEquals(0, barIndexAt(9.9f, 140f, 14))
+        assertEquals(1, barIndexAt(10f, 140f, 14))
+        assertEquals(13, barIndexAt(139.9f, 140f, 14))
+    }
+
+    @Test fun barIndexAt_outsideThePlot_isNull() {
+        assertNull(barIndexAt(-1f, 140f, 14))
+        assertNull(barIndexAt(140f, 140f, 14)) // the label area on the right
+        assertNull(barIndexAt(10f, 140f, 0))
+    }
+
+    @Test fun bars_knowTheirDayOrWeek() {
+        val daily = buildDailyChart(tracker(), emptyMap(), emptyList(), today)
+        assertEquals(14, daily.bars.size)
+        assertEquals(shortDate(today, today), daily.bars.last().label)
+        assertEquals(shortDate(today.minusDays(13), today), daily.bars.first().label)
+        val weekly = buildWeeklyChart(tracker(), emptyMap(), emptyList(), today)
+        assertTrue(weekly.bars.all { it.label.startsWith("Week of ") })
     }
 }
