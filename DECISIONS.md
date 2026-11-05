@@ -269,3 +269,8 @@
 - **No time chart on the Daily tab** (asked: "No chart, text only" and then a separate tab). The old time strip and time line chart code stays removed.
 - **New "Time" tab** on the tracker screen, shown only when the tracker has at least one stopwatch entry. Top: **time per day** (grey bars, last 14 days, tap a bar for its value like "45m"). Below: the **amount per day** bars (same 14 days, tracker color). Each chart has its own scale; no shared axis, no overlay. Under them: **"Avg 14 pages/hour"** = amount of the stopwatch entries in the last 14 days divided by their hours. **Only stopwatch entries count, both amount and time**, so plain +1 or +5 logs never inflate it. Rounded to one decimal.
 - **Tested:** the time and hourly maths, hidden tab, backup format 3 import, round trips (unit). The v6 to v7 migration test is written but **not run** (instrumented tests wipe app data on the phone).
+
+## Release 1.2
+- `versionCode 3`, `versionName 1.2`. Built with `./gradlew assembleRelease`, copied to `Seasons-release/seasons-1.2.apk` (about 10 MB), signed with the same release key as 1.1 (checked with `apksigner verify`). Same permissions as 1.1, no internet. Code shrinking still off.
+- **Installing over 1.1 works** (same key, higher versionCode): the database migrates 5 to 7 on first open and keeps all data. **Installing over the debug build on the phone does not work** (different key): it needs the debug app uninstalled, which deletes its data. Export a JSON backup first, then import it into the release app.
+- Not installed on the phone.
