@@ -44,7 +44,10 @@ import com.seasons.app.data.LogEntry
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChart
+import com.seasons.app.domain.formatMinutes
 import com.seasons.app.ui.charts.AveragePaceChart
+import com.seasons.app.ui.charts.BarChartModel
+import com.seasons.app.domain.formatClock
 import com.seasons.app.ui.charts.ChartTabs
 import com.seasons.app.ui.charts.StreakChart
 import com.seasons.app.ui.charts.describeStreaks
@@ -60,10 +63,16 @@ import java.time.LocalDate
 fun TrackerScreen(
     vm: TrackerViewModel,
     onEdit: (Long) -> Unit,
+    onStopTimer: () -> Unit,
+    onEditRunning: () -> Unit,
+    onEditTime: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val timerInfo by vm.timer.collectAsStateWithLifecycle()
+    val now by rememberNowMillis(timerInfo != null)
+    var askStop by rememberSaveable { mutableStateOf(false) }
     val ui = state
     val today = LocalDate.now()
 
@@ -106,6 +115,22 @@ fun TrackerScreen(
                 logDate = today
             },
             onDismiss = { customOpen = false },
+        )
+    }
+    val running = timerInfo
+    val thisRunning = running?.timer?.takeIf { it.trackerId == t.id }
+    if (askStop && running != null) {
+        AlertDialog(
+            onDismissRequest = { askStop = false },
+            title = { Text("Stop \"${running.trackerName}\" first?") },
+            text = { Text("Only one timer runs at a time. Stopping it opens its time so you can save it.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    askStop = false
+                    onStopTimer()
+                }) { Text("Stop it") }
+            },
+            dismissButton = { TextButton(onClick = { askStop = false }) { Text("Cancel") } },
         )
     }
     if (confirmArchive) {
@@ -194,7 +219,26 @@ fun TrackerScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(CircleShape).background(color))
                         Spacer(Modifier.width(8.dp))
-                        Text(t.name, color = Grey1, style = MaterialTheme.typography.titleMedium)
+                        Text(t.name, color = Grey1, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        if (t.status == TrackerStatus.ACTIVE) {
+                            StopwatchButton(
+                                running = thisRunning != null,
+                                color = color,
+                                onClick = {
+                                    when {
+                                        running == null -> vm.startTimer()
+                                        thisRunning != null -> onStopTimer()
+                                        else -> askStop = true
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    if (thisRunning != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Running ${formatClock(now - thisRunning.startTime)}", color = color)
+                            TextButton(onClick = onEditRunning) { Text("Edit start") }
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(s.headline, fontSize = 40.sp, fontWeight = FontWeight.Medium, lineHeight = 46.sp)
@@ -253,6 +297,7 @@ fun TrackerScreen(
                     }
                 }
             }
+            ui.timeLine?.let { line -> item { Text(line, color = Grey1) } }
             // 4. Streaks
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
@@ -286,7 +331,11 @@ fun TrackerScreen(
                 item { Text("Nothing logged yet.", color = Grey1) }
             }
             items(ui.logs, key = { it.id }) { entry ->
-                HistoryRow(entry, t.unit, today, onEdit = { editingId = entry.id }, onDelete = { deletingId = entry.id })
+                HistoryRow(
+                    entry, t.unit, today,
+                    onEdit = { if (entry.isTimed) onEditTime(entry.id) else editingId = entry.id },
+                    onDelete = { deletingId = entry.id },
+                )
             }
         }
     }
@@ -301,6 +350,7 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
         // A goal with a deadline is judged against a needed pace. Without one, the same chart is just "Pace".
         if (ui.charts.onTrack != null) add(if (ui.tracker.deadline != null) "On track" else "Pace")
         if (ui.charts.pace != null) add("Pace")
+        if (ui.charts.time != null) add("Time")
     }
     var selected by rememberSaveable { mutableStateOf(0) }
     val index = selected.coerceIn(0, tabs.lastIndex)
@@ -319,6 +369,10 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
                     SeasonHeatmap(season, color, ui.tracker.unit, today)
                 }
             }
+            "Time" -> {
+                val time = ui.charts.time
+                if (time != null) TimeTab(time, ui.charts.daily, color, ui.tracker.unit)
+            }
             else -> {
                 val onTrack = ui.charts.onTrack
                 val pace = ui.charts.pace
@@ -331,6 +385,19 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
                 }
             }
         }
+    }
+}
+
+/** Time per day on top, amount per day below. Same 14 days, each chart on its own scale. */
+@Composable
+private fun TimeTab(time: TimeTabModel, amount: BarChartModel, color: Color, unit: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Time per day", color = Grey1, style = MaterialTheme.typography.labelLarge)
+        BarChart(time.minutes, Grey1, describeTimeChart(time.minutes), valueText = { formatMinutes(it.toLong()) })
+        Text("$unit per day", color = Grey1, style = MaterialTheme.typography.labelLarge)
+        BarChart(amount, color, describeBarChart("Amount chart, last 14 days", amount, unit))
+        time.perHour?.let { Text(it, fontWeight = FontWeight.Medium) }
+        Text("Last 14 days. Only stopwatch entries count toward the hourly average.", color = Grey1, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -357,6 +424,7 @@ private fun HistoryRow(entry: LogEntry, unit: String, today: LocalDate, onEdit: 
         Column(Modifier.weight(1f)) {
             Text("${formatAmount(entry.amount)} $unit")
             Text(formatDate(entry.date, today), color = Grey1, style = MaterialTheme.typography.bodySmall)
+            entry.timeText()?.let { Text(it, color = Grey1, style = MaterialTheme.typography.bodySmall) }
         }
         TextButton(onClick = onEdit) { Text("Edit") }
         TextButton(onClick = onDelete) { Text("Delete", color = Amber) }

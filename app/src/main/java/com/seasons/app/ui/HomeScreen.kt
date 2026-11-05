@@ -1,9 +1,10 @@
-@file:OptIn(ExperimentalLayoutApi::class)
+@file:OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 
 package com.seasons.app.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -38,12 +40,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.TrackerType
+import com.seasons.app.domain.formatClock
 
 @Composable
 fun HomeScreen(
@@ -54,9 +59,29 @@ fun HomeScreen(
     onArchive: () -> Unit,
     onSeasons: () -> Unit,
     onSettings: () -> Unit,
+    onStopTimer: () -> Unit,
+    onEditRunning: () -> Unit,
 ) {
     val rows by vm.rows.collectAsStateWithLifecycle()
     val needsSetup by vm.needsSetup.collectAsStateWithLifecycle()
+    val timerInfo by vm.timer.collectAsStateWithLifecycle()
+    val now by rememberNowMillis(timerInfo != null)
+    var askStop by rememberSaveable { mutableStateOf(false) }
+    val running = timerInfo
+    if (askStop && running != null) {
+        AlertDialog(
+            onDismissRequest = { askStop = false },
+            title = { Text("Stop \"${running.trackerName}\" first?") },
+            text = { Text("Only one timer runs at a time. Stopping it opens its time so you can save it.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    askStop = false
+                    onStopTimer()
+                }) { Text("Stop it") }
+            },
+            dismissButton = { TextButton(onClick = { askStop = false }) { Text("Cancel") } },
+        )
+    }
     if (needsSetup) SetupDialog(onSave = vm::saveSetup)
     Scaffold(
         floatingActionButton = {
@@ -97,7 +122,21 @@ fun HomeScreen(
                     item { Text("No trackers yet.\nTap + to add one.", color = Grey1) }
                 }
                 items(list.orEmpty(), key = { it.tracker.id }) { row ->
-                    TrackerRow(row, onClick = { onOpen(row.tracker.id) })
+                    val id = row.tracker.id
+                    TrackerRow(
+                        row,
+                        onClick = { onOpen(id) },
+                        timerStart = running?.timer?.takeIf { it.trackerId == id }?.startTime,
+                        now = now,
+                        onTimer = {
+                            when {
+                                running == null -> vm.startTimer(id)
+                                running.timer.trackerId == id -> onStopTimer()
+                                else -> askStop = true
+                            }
+                        },
+                        onEditRunning = onEditRunning,
+                    )
                 }
             }
         }
@@ -105,12 +144,34 @@ fun HomeScreen(
 }
 
 @Composable
-internal fun TrackerRow(row: HomeRow, onClick: () -> Unit) {
+internal fun TrackerRow(
+    row: HomeRow,
+    onClick: () -> Unit,
+    timerStart: Long?,
+    now: Long,
+    onTimer: () -> Unit,
+    onEditRunning: () -> Unit,
+) {
     val t = row.tracker
     val color = Color(t.color)
     val main = row.mainText()
 
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    val haptic = LocalHapticFeedback.current
+    // Long press edits the start of this tracker's running timer. It does nothing when no timer runs here.
+    Column(
+        Modifier.fillMaxWidth().combinedClickable(
+            onClick = onClick,
+            onLongClick = if (timerStart != null) {
+                {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onEditRunning()
+                }
+            } else {
+                null
+            },
+            onLongClickLabel = "Edit timer start",
+        ),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(color))
             Spacer(Modifier.width(10.dp))
@@ -121,6 +182,15 @@ internal fun TrackerRow(row: HomeRow, onClick: () -> Unit) {
                 Text(row.statusText(), color = if (row.metToday) color else Grey1, style = MaterialTheme.typography.bodyMedium)
                 Text(row.streakText(), color = Grey1, style = MaterialTheme.typography.bodySmall)
             }
+            StopwatchButton(running = timerStart != null, color = color, onClick = onTimer)
+        }
+        if (timerStart != null) {
+            Text(
+                "Running ${formatClock(now - timerStart)} · hold to edit start",
+                color = color,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 20.dp),
+            )
         }
         Spacer(Modifier.height(6.dp))
         Text(main, fontSize = 22.sp, fontWeight = FontWeight.Medium)

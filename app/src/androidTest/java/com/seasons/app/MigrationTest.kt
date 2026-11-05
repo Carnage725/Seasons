@@ -243,22 +243,50 @@ class MigrationTest {
         db.close()
     }
 
-    @Test fun v1ToV6_fullChain_opensWithTheAppsBuilder() = runBlocking {
+    @Test fun v6ToV7_addsTimeColumnsAndTimerTable_keepsEveryRow() {
+        helper.createDatabase(dbName, 6).apply {
+            execSQL(
+                "INSERT INTO trackers (id, name, unit, type, color, target, deadline, bandPeriod, startDate, status, completedDate, sortOrder) VALUES " +
+                    "(1, 'Mom Test', 'pages', 'GOAL', 11, 200.0, NULL, 'DAILY', 20300, 'ACTIVE', NULL, 0)",
+            )
+            execSQL("INSERT INTO band_history (id, trackerId, effectiveFrom, lower) VALUES (1, 1, 20300, 3.0)")
+            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 12.5, 1000), (2, 1, 20331, 4.0, 2000)")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 7, true)
+
+        assertEquals(1, count(db, "trackers"))
+        assertEquals(1, count(db, "band_history"))
+        assertEquals(2, count(db, "log_entries"))
+        assertEquals(0, count(db, "running_timer"))
+        db.query("SELECT amount, startTime, endTime FROM log_entries ORDER BY id").use {
+            it.moveToFirst()
+            assertEquals(12.5, it.getDouble(0), 0.0)
+            assertEquals(true, it.isNull(1))
+            assertEquals(true, it.isNull(2))
+        }
+        db.query("PRAGMA foreign_key_check").use { assertEquals(0, it.count) }
+        db.close()
+    }
+
+    @Test fun v1ToV7_fullChain_opensWithTheAppsBuilder() = runBlocking {
         helper.createDatabase(dbName, 1).apply {
             execSQL("INSERT INTO groups (id, name, color, sortOrder) VALUES (1, 'Study', 5, 0)")
             execSQL(
                 "INSERT INTO trackers (id, name, unit, type, color, groupId, target, deadline, bandPeriod, startDate, status, completedDate, sortOrder) VALUES " +
-                    "(1, 'Restarted', 'x', 'ONGOING', 1, 1, NULL, NULL, 'DAILY', 20300, 'REPLACED', NULL, 0)",
+                    "(1, 'Mom Test', 'pages', 'GOAL', 11, 1, 200.0, NULL, 'NONE', 20300, 'ACTIVE', NULL, 0)",
             )
-            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 2.0, 1)")
+            execSQL("INSERT INTO log_entries (id, trackerId, date, amount, createdAt) VALUES (1, 1, 20330, 12.5, 1000)")
             close()
         }
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbName).addMigrations(MIGRATION_2_3).build()
         val repo = Repository(db)
-        assertEquals("ARCHIVED", repo.getTracker(1)!!.status.name)
-        assertEquals(2.0, repo.observeLogs(1).first().single().amount, 0.0)
-        repo.addLog(1, java.time.LocalDate.ofEpochDay(20331), 3.0, java.time.LocalDate.ofEpochDay(20331))
+        assertEquals(12.5, repo.observeLogs(1).first().single().amount, 0.0)
+        val now = java.time.LocalDate.ofEpochDay(20331).atTime(12, 0).atZone(java.time.ZoneId.of("UTC")).toInstant().toEpochMilli()
+        assertEquals(true, repo.startTimer(1, now - 600_000))
+        repo.finishTimer(now - 600_000, now, 2.0, now, java.time.ZoneId.of("UTC"))
         assertEquals(2, repo.observeLogs(1).first().size)
         db.close()
     }

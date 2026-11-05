@@ -111,7 +111,7 @@ class BackupTest {
     @Test fun export_hasAppNameVersionAndTime() {
         val root = JSONObject(sample().toJson(exportedAt))
         assertEquals("Seasons", root.getString("app"))
-        assertEquals(3, root.getInt("version"))
+        assertEquals(4, root.getInt("version"))
         assertEquals("2026-10-08T09:00:00Z", root.getString("exportedAt"))
     }
 
@@ -127,7 +127,7 @@ class BackupTest {
 
     @Test fun rejects_wrongAppName() = assertRejected("not a Seasons backup", json { it.put("app", "Other") })
 
-    @Test fun rejects_newerVersion() = assertRejected("newer version", json { it.put("version", 4) })
+    @Test fun rejects_newerVersion() = assertRejected("newer version", json { it.put("version", 5) })
 
     @Test fun rejects_missingVersion() = assertRejected("version", json { it.remove("version") })
 
@@ -227,6 +227,21 @@ class BackupTest {
         assertEquals(2, parseBackup(root.toString()).bands.size)
     }
 
+    @Test fun formatThreeFile_withoutTimeFields_stillImports() {
+        // Made by the build between the stopwatch removal and its return: no startTime, endTime or runningTimer.
+        val root = JSONObject(sample().toJson(exportedAt))
+        root.put("version", 3)
+        root.remove("runningTimer")
+        val logs = root.getJSONArray("logs")
+        for (i in 0 until logs.length()) {
+            logs.getJSONObject(i).remove("startTime")
+            logs.getJSONObject(i).remove("endTime")
+        }
+        val data = parseBackup(root.toString())
+        assertEquals(sample().logs.size, data.logs.size)
+        assertTrue(data.logs.all { it.startTime == null && it.endTime == null })
+    }
+
     @Test fun oldReplacedStatus_isReadAsArchived() {
         val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
         val data = parseBackup(text)
@@ -244,38 +259,77 @@ class BackupTest {
         assertEquals(4, parseBackup(text).trackers.size)
     }
 
-    @Test fun export_writesFormatThreeWithoutGroupsOrBandMaximum() {
+    @Test fun export_writesFormatFourWithoutGroupsOrBandMaximum() {
         val root = JSONObject(sample().toJson(Instant.parse("2026-10-10T08:00:00Z")))
-        assertEquals(3, root.getInt("version"))
+        assertEquals(4, root.getInt("version"))
         assertTrue(!root.has("groups"))
         assertTrue(!root.getJSONArray("bands").getJSONObject(0).has("upper"))
         assertTrue(!root.getJSONArray("trackers").getJSONObject(0).has("groupId"))
     }
 
-    // ---------- Files written while the stopwatch existed ----------
+    // ---------- Stopwatch fields (format 2) ----------
 
-    @Test fun oldFileWithTimeFields_stillImports_andTheTimeIsIgnored() {
-        val withTimes = json {
-            it.getJSONArray("logs").getJSONObject(0).put("startTime", 1_000_000L).put("endTime", 2_000_000L)
-            it.put("runningTimer", JSONObject().put("trackerId", 1).put("startTime", 5L))
-        }
-        assertEquals(sample(), parseBackup(withTimes))
+    private val t0 = java.time.LocalDateTime.of(2026, 10, 5, 13, 19).atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
+    private val tEnd = t0 + 15 * 60_000L + 59_000L
+
+    private fun withTimed() = sample().copy(
+        logs = sample().logs + LogEntry(10, 1, LocalDate.of(2026, 10, 5), 7.5, 1000L, startTime = t0, endTime = tEnd),
+        runningTimer = com.seasons.app.data.RunningTimer(trackerId = 2, startTime = t0),
+    )
+
+    @Test fun timedLogAndRunningTimer_roundTrip() {
+        val data = withTimed()
+        val parsed = parseBackup(data.toJson(exportedAt), now = tEnd)
+        assertEquals(data, parsed)
+        assertTrue(parsed.logs.last().isTimed)
+        assertTrue(!parsed.logs.first().isTimed)
     }
 
-    @Test fun oldFileWithBrokenTimeFields_isNotRejectedForThem() {
-        val broken = json {
-            // Only a start, and a timer for a tracker that is not in the file. Neither matters any more.
-            it.getJSONArray("logs").getJSONObject(0).put("startTime", 5L)
-            it.put("runningTimer", JSONObject().put("trackerId", 99).put("startTime", 5L))
-        }
-        assertEquals(sample(), parseBackup(broken))
+    @Test fun noRunningTimer_roundTripsAsNull() {
+        assertEquals(null, parseBackup(sample().toJson(exportedAt)).runningTimer)
     }
 
-    @Test fun export_hasNoTimeFields() {
-        val root = JSONObject(sample().toJson(exportedAt))
-        assertTrue(!root.has("runningTimer"))
-        assertTrue(!root.getJSONArray("logs").getJSONObject(0).has("startTime"))
-        assertTrue(!root.getJSONArray("logs").getJSONObject(0).has("endTime"))
+    @Test fun formatOneFile_hasNoTimes_andNoRunningTimer() {
+        val text = javaClass.getResourceAsStream("/backup_v1.json")!!.bufferedReader().use { it.readText() }
+        val data = parseBackup(text)
+        assertTrue(data.logs.none { it.isTimed })
+        assertEquals(null, data.runningTimer)
+    }
+
+    @Test fun rejects_startWithoutEnd_andEndWithoutStart() {
+        assertRejected("start time without an end time", json { it.getJSONArray("logs").getJSONObject(0).put("startTime", 5L) })
+        assertRejected("start time without an end time", json { it.getJSONArray("logs").getJSONObject(0).put("endTime", 5L) })
+    }
+
+    @Test fun rejects_endNotAfterStart() {
+        assertRejected("ends before it starts", json {
+            it.getJSONArray("logs").getJSONObject(0).put("startTime", 100L).put("endTime", 100L)
+        })
+        assertRejected("ends before it starts", json {
+            it.getJSONArray("logs").getJSONObject(0).put("startTime", 200L).put("endTime", 100L)
+        })
+    }
+
+    @Test fun rejects_runningTimerForMissingTracker() = assertRejected("tracker that is not in the file",
+        withTimed().copy(runningTimer = com.seasons.app.data.RunningTimer(trackerId = 99, startTime = t0)).toJson(exportedAt),
+    )
+
+    @Test fun rejects_runningTimerStartingInTheFuture() {
+        val text = withTimed().toJson(exportedAt)
+        try {
+            parseBackup(text, now = t0 - 1)
+            fail("expected a rejection")
+        } catch (e: BackupException) {
+            assertTrue(e.message!!.contains("future"))
+        }
+    }
+
+    @Test fun csv_timedRow_hasStartEndAndWholeMinutes() {
+        val zone = java.time.ZoneId.of("Asia/Kolkata")
+        val data = withTimed()
+        val lines = logsToCsv(data.trackers, data.logs, zone).split("\r\n")
+        val row = lines.first { it.contains("7.5") }
+        assertEquals("2026-10-05,The Mom Test é 日本,7.5,pages,2026-10-05T13:19,2026-10-05T13:34,15,1970-01-01T00:00:01Z", row)
     }
 
     // ---------- CSV ----------
@@ -283,7 +337,7 @@ class BackupTest {
     @Test fun csv_headerAndRowsOldestFirst() {
         val data = sample()
         val lines = logsToCsv(data.trackers, data.logs).split("\r\n").filter { it.isNotEmpty() }
-        assertEquals("date,tracker,amount,unit,logged_at", lines[0])
+        assertEquals("date,tracker,amount,unit,start,end,minutes,logged_at", lines[0])
         assertEquals(3, lines.size - 1)
         assertTrue(lines[1].startsWith("2026-10-04,")) // oldest
         assertTrue(lines[3].startsWith("2026-10-07,")) // newest
@@ -292,8 +346,8 @@ class BackupTest {
     @Test fun csv_rowsHaveNoGroupColumn() {
         val data = sample()
         val lines = logsToCsv(data.trackers, data.logs).split("\r\n")
-        assertEquals("2026-10-04,Run,1234567.89,laps,1970-01-01T00:00:00Z", lines[1])
-        assertEquals("2026-10-07,The Mom Test é 日本,0.30000000000000004,pages,2023-11-14T22:13:20.123Z", lines[3])
+        assertEquals("2026-10-04,Run,1234567.89,laps,,,,1970-01-01T00:00:00Z", lines[1])
+        assertEquals("2026-10-07,The Mom Test é 日本,0.30000000000000004,pages,,,,2023-11-14T22:13:20.123Z", lines[3])
     }
 
     @Test fun csv_endsEveryLineWithCrlf_andHasNoBareNewlines() {
@@ -331,6 +385,6 @@ class BackupTest {
     }
 
     @Test fun csv_noLogs_isJustTheHeader() {
-        assertEquals("date,tracker,amount,unit,logged_at\r\n", logsToCsv(emptyList(), emptyList()))
+        assertEquals("date,tracker,amount,unit,start,end,minutes,logged_at\r\n", logsToCsv(emptyList(), emptyList()))
     }
 }

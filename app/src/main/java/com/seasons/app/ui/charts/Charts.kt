@@ -104,7 +104,14 @@ fun ChartTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 // ---------- Bar chart (Daily and Weekly) ----------
 
 @Composable
-fun BarChart(model: BarChartModel, color: Color, description: String, modifier: Modifier = Modifier) {
+fun BarChart(
+    model: BarChartModel,
+    color: Color,
+    description: String,
+    modifier: Modifier = Modifier,
+    /** How a bar's value is written. Amounts by default; the Time tab passes minutes. */
+    valueText: (Double) -> String = { formatAmount(it) },
+) {
     val measurer = rememberTextMeasurer()
     // Tap a bar to see its value. Tap it again, or another tab's chart, to clear.
     var selected by remember(model) { mutableStateOf<Int?>(null) }
@@ -156,12 +163,12 @@ fun BarChart(model: BarChartModel, color: Color, description: String, modifier: 
         val lastCenter = (n - 1) * slot + slot / 2f
         val picked = selected?.takeIf { it in model.bars.indices }
         if (picked != n - 1) {
-            label(measurer, formatAmount(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
+            label(measurer, valueText(last.value), TextMain, lastCenter, y(last.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
         }
         // The tapped bar: its value above it, which day or week it is in the top left.
         if (picked != null) {
             val bar = model.bars[picked]
-            label(measurer, formatAmount(bar.value), TextMain, picked * slot + slot / 2f, y(bar.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
+            label(measurer, valueText(bar.value), TextMain, picked * slot + slot / 2f, y(bar.value) - 16.dp.toPx(), Anchor.CENTER, bold = true)
             label(measurer, bar.label, TextMain, 0f, 0f)
         }
 

@@ -30,6 +30,9 @@ import com.seasons.app.ui.NavViewModel
 import com.seasons.app.ui.Screen
 import com.seasons.app.ui.SeasonsTheme
 import com.seasons.app.ui.TrackerFormScreen
+import com.seasons.app.ui.TimeEditKind
+import com.seasons.app.ui.TimeEditScreen
+import com.seasons.app.ui.TimeEditViewModel
 import com.seasons.app.ui.TrackerScreen
 import com.seasons.app.ui.TrackerViewModel
 import com.seasons.app.ui.repository
@@ -81,6 +84,8 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
                 onTrophies = { nav.push(Screen.Trophies) },
                 onArchive = { nav.push(Screen.Archive) },
                 onSeasons = { nav.push(Screen.SeasonsHistory) },
+                onStopTimer = { nav.push(Screen.TimerStop()) },
+                onEditRunning = { nav.push(Screen.TimerEditRunning()) },
                 onSettings = { nav.push(Screen.Settings) },
             )
         }
@@ -101,6 +106,9 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
             val vm: SeasonsViewModel = viewModel(key = "summary", factory = viewModelFactory { initializer { SeasonsViewModel(repository()) } })
             SeasonSummaryScreen(vm, screen.summaryId, onClose = nav::pop)
         }
+        is Screen.TimerStop -> TimeEditRoute("stop-${screen.token}", TimeEditKind.STOP, null, nav)
+        is Screen.TimerEditRunning -> TimeEditRoute("running-${screen.token}", TimeEditKind.RUNNING, null, nav)
+        is Screen.TimerEditEntry -> TimeEditRoute("entry-${screen.logId}-${screen.token}", TimeEditKind.ENTRY, screen.logId, nav)
         Screen.Archive -> {
             val vm: ArchiveViewModel = viewModel(factory = viewModelFactory { initializer { ArchiveViewModel(repository()) } })
             ArchiveScreen(vm, onBack = nav::pop)
@@ -113,6 +121,9 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
             TrackerScreen(
                 vm = vm,
                 onEdit = { nav.push(Screen.TrackerForm(it)) },
+                onStopTimer = { nav.push(Screen.TimerStop()) },
+                onEditRunning = { nav.push(Screen.TimerEditRunning()) },
+                onEditTime = { nav.push(Screen.TimerEditEntry(it)) },
                 onBack = nav::pop,
             )
         }
@@ -134,4 +145,13 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
             )
         }
     }
+}
+
+@Composable
+private fun TimeEditRoute(key: String, kind: TimeEditKind, logId: Long?, nav: NavViewModel) {
+    val vm: TimeEditViewModel = viewModel(
+        key = "time-$key",
+        factory = viewModelFactory { initializer { TimeEditViewModel(repository(), kind, logId) } },
+    )
+    TimeEditScreen(vm, onBack = nav::pop)
 }

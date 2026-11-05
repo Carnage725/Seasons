@@ -6,6 +6,7 @@ import com.seasons.app.data.BandHistory
 import com.seasons.app.data.BandPeriod
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.Repository
+import com.seasons.app.data.RunningTimer
 import com.seasons.app.data.Tracker
 import com.seasons.app.data.TrackerStatus
 import com.seasons.app.data.TrackerType
@@ -85,7 +86,14 @@ fun Repository.observeHomeRows(): Flow<List<HomeRow>> = combine(
     }
 }
 
-class HomeViewModel(repo: Repository) : ViewModel() {
+/** The running timer and the name of its tracker. */
+data class TimerInfo(val timer: RunningTimer, val trackerName: String)
+
+fun Repository.observeTimerInfo(): Flow<TimerInfo?> = combine(observeRunningTimer(), observeTrackers()) { timer, trackers ->
+    timer?.let { t -> TimerInfo(t, trackers.firstOrNull { it.id == t.trackerId }?.name.orEmpty()) }
+}
+
+class HomeViewModel(private val repo: Repository) : ViewModel() {
     private val seasons = HomeSeasonState(repo, viewModelScope)
 
     /** True when first-launch setup is still needed. */
@@ -109,6 +117,14 @@ class HomeViewModel(repo: Repository) : ViewModel() {
 
     fun saveSetup(start: java.time.LocalDate, length: Int) {
         viewModelScope.launch { seasons.saveSetup(start, length) }
+    }
+
+    /** The running timer, or null. */
+    val timer: StateFlow<TimerInfo?> = repo.observeTimerInfo()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun startTimer(trackerId: Long) {
+        viewModelScope.launch { repo.startTimer(trackerId) }
     }
 
     /** Null while loading. */

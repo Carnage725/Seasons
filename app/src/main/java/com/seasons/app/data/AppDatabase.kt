@@ -43,8 +43,9 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         LogEntry::class,
         Settings::class,
         SeasonSummary::class,
+        RunningTimer::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = Migration1To2::class),
@@ -54,6 +55,8 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         AutoMigration(from = 4, to = 5, spec = Migration4To5::class),
         // Version 6: band maximum dropped.
         AutoMigration(from = 5, to = 6, spec = Migration5To6::class),
+        // Version 7: the stopwatch is back. Two nullable columns on log_entries and the running_timer table. Nothing is changed or lost.
+        AutoMigration(from = 6, to = 7),
     ],
 )
 @TypeConverters(Converters::class)
@@ -63,6 +66,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun logDao(): LogDao
     abstract fun settingsDao(): SettingsDao
     abstract fun seasonSummaryDao(): SeasonSummaryDao
+    abstract fun runningTimerDao(): RunningTimerDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
