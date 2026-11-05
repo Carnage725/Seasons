@@ -42,10 +42,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seasons.app.data.LogEntry
 import com.seasons.app.data.TrackerStatus
+import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChart
+import com.seasons.app.ui.charts.AveragePaceChart
 import com.seasons.app.ui.charts.ChartTabs
 import com.seasons.app.ui.charts.OnTrackChart
 import com.seasons.app.ui.charts.describeBarChart
+import com.seasons.app.ui.charts.describeAveragePace
 import com.seasons.app.ui.charts.describeOnTrack
 import com.seasons.app.ui.charts.SeasonHeatmap
 import java.time.LocalDate
@@ -253,6 +256,9 @@ fun TrackerScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                     StreakStat("Current streak", s.streaks.current)
                     StreakStat("Avg streak", s.streaks.average)
+                    if (t.type == TrackerType.ONGOING) {
+                        StreakStat("Total ${t.unit}", formatAmount(ui.logs.sumOf { it.amount }))
+                    }
                 }
             }
             // 5. Charts
@@ -277,7 +283,9 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
         add("Daily")
         add("Weekly")
         add("Season")
-        if (ui.charts.onTrack != null) add("On track")
+        // A goal with a deadline is judged against a needed pace. Without one, the same chart is just "Pace".
+        if (ui.charts.onTrack != null) add(if (ui.tracker.deadline != null) "On track" else "Pace")
+        if (ui.charts.pace != null) add("Pace")
     }
     var selected by rememberSaveable { mutableStateOf(0) }
     val index = selected.coerceIn(0, tabs.lastIndex)
@@ -296,7 +304,17 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
                     SeasonHeatmap(season, color, ui.tracker.unit, today)
                 }
             }
-            else -> OnTrackChart(ui.charts.onTrack!!, color, describeOnTrack(ui.charts.onTrack, ui.tracker.unit))
+            else -> {
+                val onTrack = ui.charts.onTrack
+                val pace = ui.charts.pace
+                if (onTrack != null) {
+                    OnTrackChart(onTrack, color, describeOnTrack(onTrack, ui.tracker.unit))
+                } else if (pace != null) {
+                    AveragePaceChart(pace, color, describeAveragePace(pace, ui.tracker.unit))
+                } else {
+                    Text("Nothing to show yet.", color = Grey1)
+                }
+            }
         }
     }
 }

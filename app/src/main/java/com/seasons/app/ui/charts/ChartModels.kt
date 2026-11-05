@@ -225,6 +225,10 @@ fun buildOnTrackChart(
         needed = ChartPoint(0, 0.0) to ChartPoint(offset(dl), target)
         lineLabel = "${formatAmount(target)} by ${shortDate(dl, today)}"
         if (dl.isAfter(endDate)) endDate = dl
+    } else {
+        // No deadline: the target is a flat line. The slope of the progress line is the pace.
+        needed = ChartPoint(0, target) to ChartPoint(max(1, offset(endDate)), target)
+        lineLabel = "Target ${formatAmount(target)}"
     }
 
     return OnTrackModel(
@@ -241,6 +245,48 @@ fun buildOnTrackChart(
 }
 
 
+// ---------- Pace for trackers without a target: average per day ----------
+
+data class AveragePaceModel(
+    /** One point per day since the tracker started, at most [days]. dayOffset 0 is the first point. */
+    val points: List<ChartPoint>,
+    val maxY: Double,
+    val currentLabel: String,
+    val firstLabel: String,
+    val lastLabel: String,
+)
+
+/**
+ * For each of the last [days] days: the average per day over the [window] days ending that day.
+ * Near the start of the tracker the window is shorter (only days since the start count).
+ * Null before the tracker starts.
+ */
+fun buildAveragePace(
+    tracker: Tracker,
+    totals: Map<LocalDate, Double>,
+    today: LocalDate,
+    days: Int = 30,
+    window: Int = 7,
+): AveragePaceModel? {
+    val start = tracker.startDate
+    if (today.isBefore(start)) return null
+    val dates = (days - 1 downTo 0).map { today.minusDays(it.toLong()) }.filter { !it.isBefore(start) }
+    val values = dates.map { d ->
+        val from = if (d.minusDays((window - 1).toLong()).isBefore(start)) start else d.minusDays((window - 1).toLong())
+        val count = ChronoUnit.DAYS.between(from, d).toInt() + 1
+        (0 until count).sumOf { totals[from.plusDays(it.toLong())] ?: 0.0 } / count
+    }
+    val points = values.mapIndexed { i, v -> ChartPoint(i, v) }
+    val peak = values.max()
+    return AveragePaceModel(
+        points = points,
+        maxY = if (peak > 0.0) peak else 1.0,
+        currentLabel = "${formatAmount(Math.round(values.last() * 10) / 10.0)}/day",
+        firstLabel = shortDate(dates.first(), today),
+        lastLabel = "Today",
+    )
+}
+
 // ---------- Spoken descriptions (for screen readers) ----------
 
 fun describeBarChart(title: String, model: BarChartModel, unit: String): String = buildString {
@@ -254,7 +300,10 @@ fun describeSeason(model: SeasonModel): String =
     "Season ${model.number} heatmap, day ${model.dayOfSeason} of ${model.length}. " +
         "${model.cells.count { it.met }} days met their goal. Tap a day to hear its value below."
 
+fun describeAveragePace(model: AveragePaceModel, unit: String): String =
+    "Pace chart. Average per day over the last 7 days, now ${model.currentLabel.removeSuffix("/day")} $unit per day."
+
 fun describeOnTrack(model: OnTrackModel, unit: String): String = buildString {
     append("Progress chart. Done ").append(model.cumulativeLabel).append(" of ").append(formatAmount(model.target)).append(' ').append(unit).append('.')
-    model.lineLabel?.let { append(" Needed pace line reaches ").append(it).append('.') }
+    model.lineLabel?.let { append(" Line: ").append(it).append('.') }
 }

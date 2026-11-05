@@ -50,6 +50,7 @@ import com.seasons.app.ui.Grey3
 import com.seasons.app.ui.TextMain
 import com.seasons.app.ui.formatAmount
 import java.time.LocalDate
+import kotlin.math.max
 
 // Rules: grey by default, only the tracker color carries data, no legend, no gridlines, no borders,
 // bars start at zero, left-aligned text, horizontal text only.
@@ -297,6 +298,43 @@ fun OnTrackChart(model: OnTrackModel, color: Color, description: String, modifie
             label(measurer, model.lineLabel, Grey1, x(end.dayOffset) + 6.dp.toPx(), labelY)
         }
 
+        label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
+        label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
+    }
+}
+
+// ---------- Average per day (trackers without a target) ----------
+
+@Composable
+fun AveragePaceChart(model: AveragePaceModel, color: Color, description: String, modifier: Modifier = Modifier) {
+    val measurer = rememberTextMeasurer()
+    Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
+        val rightPad = 64.dp.toPx()
+        val topPad = 20.dp.toPx()
+        val bottomPad = 22.dp.toPx()
+        val plotW = size.width - rightPad
+        val plotH = size.height - topPad - bottomPad
+        val lastIndex = max(1, model.points.size - 1)
+        fun x(i: Int) = plotW * i / lastIndex.toFloat()
+        fun y(v: Double) = topPad + plotH * (1f - (v / model.maxY).toFloat())
+        val baseY = y(0.0)
+
+        drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
+
+        val points = model.points
+        if (points.size == 1) {
+            drawCircle(color, 3.dp.toPx(), Offset(x(0), y(points[0].value)))
+        } else {
+            val path = Path()
+            points.forEachIndexed { i, p ->
+                if (i == 0) path.moveTo(x(i), y(p.value)) else path.lineTo(x(i), y(p.value))
+            }
+            drawPath(path, color, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+
+        label(measurer, "Avg per day, 7 days", Grey1, 0f, 0f)
+        val end = points.last()
+        label(measurer, model.currentLabel, color, x(points.size - 1) + 6.dp.toPx(), y(end.value) - 7.dp.toPx(), bold = true, backdrop = AppBackground)
         label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
         label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
     }

@@ -8,9 +8,11 @@ import com.seasons.app.data.Repository
 import com.seasons.app.data.Tracker
 import com.seasons.app.data.seasonBase
 import com.seasons.app.data.TrackerType
+import com.seasons.app.ui.charts.AveragePaceModel
 import com.seasons.app.ui.charts.BarChartModel
 import com.seasons.app.ui.charts.OnTrackModel
 import com.seasons.app.ui.charts.SeasonModel
+import com.seasons.app.ui.charts.buildAveragePace
 import com.seasons.app.ui.charts.buildDailyChart
 import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
@@ -40,6 +42,8 @@ data class ChartsData(
     val weekly: BarChartModel,
     val season: SeasonModel?,
     val onTrack: OnTrackModel?,
+    /** Trackers with no target: average per day. */
+    val pace: AveragePaceModel?,
 )
 
 class TrackerViewModel(private val repo: Repository, private val trackerId: Long) : ViewModel() {
@@ -72,6 +76,7 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                         )
                     },
                     onTrack = if (tracker.type == TrackerType.GOAL) buildOnTrackChart(tracker, totals, today) else null,
+                    pace = if (tracker.type == TrackerType.ONGOING) buildAveragePace(tracker, totals, today) else null,
                 ),
             )
         }

@@ -243,3 +243,11 @@
 - **Pure and unit-tested:** `barIndexAt` (x position to bar, null outside the plot or over the right-hand label area) and the bar labels. The selection resets when the chart's data changes.
 - **Not changed:** the Season and On track charts, the widget.
 - Instrumented tests not run (they wipe app data on the phone).
+
+## Pace tab, and total (board cards: on track after deadline removed, pace line, total completed)
+- **Goal with a deadline:** unchanged, tab "On track" (progress line vs. the needed-pace line).
+- **Goal without a deadline:** the tab is now called **"Pace"**. Same chart: your cumulative total as a line, plus a **flat dashed line at the target** ("Target 100"). The slope of your line is your pace. No needed-pace line, since there is no deadline. (Cumulative was chosen over per-day amounts, which the Daily tab already shows as bars.)
+- **Ongoing tracker (no target):** new **"Pace" tab** with the **average per day over the last 7 days**, one point per day for the last 30 days (only days since the tracker started). Near the start the window is shorter (only days since the start count). The right-end label is today's value, for example `2.4/day`. Y axis starts at 0, top is the highest point.
+- **Total:** ongoing trackers show **"Total <unit>"** next to Current and Avg streak (all logs, all time). Goals already show done / target in the header, so no extra stat.
+- **Cumulative-pace card dropped** (agreed): same chart as the Goal "Pace" tab.
+- Instrumented tests not run (they wipe app data on the phone).

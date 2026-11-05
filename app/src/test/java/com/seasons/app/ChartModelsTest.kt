@@ -12,6 +12,7 @@ import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
 import com.seasons.app.ui.charts.barIndexAt
+import com.seasons.app.ui.charts.buildAveragePace
 import com.seasons.app.ui.charts.shortDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -213,10 +214,10 @@ class ChartModelsTest {
         assertEquals("Oct 13", m.lastLabel)
     }
 
-    @Test fun onTrack_noDeadline_hasOnlyTheCumulativeLine() {
+    @Test fun onTrack_noDeadline_hasTheCumulativeLineAndAFlatTarget() {
         val m = buildOnTrackChart(goal(), goalLogs, today)!!
-        assertNull(m.needed)
-        assertNull(m.lineLabel)
+        assertEquals(100.0, m.needed!!.second.value, 0.0)
+        assertEquals("Target 100", m.lineLabel)
         assertEquals(3, m.maxDayOffset) // stops at today: nothing is projected
         assertEquals("Oct 7", m.lastLabel)
     }
@@ -273,11 +274,11 @@ class ChartModelsTest {
     @Test fun describe_onTrack_withAndWithoutDeadline() {
         val withDeadline = buildOnTrackChart(goal(deadline = d(6)), goalLogs, today)!!
         assertEquals(
-            "Progress chart. Done 15 of 100 pages. Needed pace line reaches 100 by Oct 13.",
+            "Progress chart. Done 15 of 100 pages. Line: 100 by Oct 13.",
             describeOnTrack(withDeadline, "pages"),
         )
         val without = buildOnTrackChart(goal(), goalLogs, today)!!
-        assertEquals("Progress chart. Done 15 of 100 pages.", describeOnTrack(without, "pages"))
+        assertEquals("Progress chart. Done 15 of 100 pages. Line: Target 100.", describeOnTrack(without, "pages"))
     }
 
     // ---------- tap a bar ----------
@@ -302,5 +303,43 @@ class ChartModelsTest {
         assertEquals(shortDate(today.minusDays(13), today), daily.bars.first().label)
         val weekly = buildWeeklyChart(tracker(), emptyMap(), emptyList(), today)
         assertTrue(weekly.bars.all { it.label.startsWith("Week of ") })
+    }
+
+    // ---------- average per day (pace without a target) ----------
+
+    @Test fun pace_averagesTheLastSevenDays() {
+        // 7 days ending today: 7 on one day, nothing else -> 1 per day.
+        val m = buildAveragePace(tracker(), totals(0 to 7.0), today)!!
+        assertEquals(1.0, m.points.last().value, 1e-9)
+        assertEquals("1/day", m.currentLabel)
+        assertEquals(7.0 / 7.0, m.maxY, 1e-9)
+    }
+
+    @Test fun pace_dayLeavesTheWindowAfterSevenDays() {
+        val m = buildAveragePace(tracker(), totals(-7 to 7.0), today)!!
+        assertEquals(0.0, m.points.last().value, 1e-9) // 7 days ago is outside today's window
+        assertEquals(1.0, m.points[m.points.size - 2].value, 1e-9) // still inside yesterday's window
+    }
+
+    @Test fun pace_shortWindowNearTheStart() {
+        // Tracker started 2 days ago: today's window is 3 days, not 7.
+        val t = tracker().copy(startDate = today.minusDays(2))
+        val m = buildAveragePace(t, totals(-2 to 3.0, 0 to 3.0), today)!!
+        assertEquals(3, m.points.size) // nothing before the start date
+        assertEquals(2.0, m.points.last().value, 1e-9) // 6 / 3 days
+    }
+
+    @Test fun pace_beforeStart_isNull_andEmptyIsOneForTheAxis() {
+        assertNull(buildAveragePace(tracker().copy(startDate = today.plusDays(1)), emptyMap(), today))
+        assertEquals(1.0, buildAveragePace(tracker(), emptyMap(), today)!!.maxY, 0.0)
+    }
+
+    @Test fun onTrack_goalWithoutDeadline_getsAFlatTargetLine() {
+        val t = tracker().copy(type = TrackerType.GOAL, target = 100.0, deadline = null)
+        val m = buildOnTrackChart(t, totals(-1 to 10.0), today)!!
+        val (a, b) = m.needed!!
+        assertEquals(100.0, a.value, 0.0)
+        assertEquals(100.0, b.value, 0.0)
+        assertEquals("Target 100", m.lineLabel)
     }
 }
