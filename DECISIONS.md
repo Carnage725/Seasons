@@ -274,3 +274,12 @@
 - `versionCode 3`, `versionName 1.2`. Built with `./gradlew assembleRelease`, copied to `Seasons-release/seasons-1.2.apk` (about 10 MB), signed with the same release key as 1.1 (checked with `apksigner verify`). Same permissions as 1.1, no internet. Code shrinking still off.
 - **Installing over 1.1 works** (same key, higher versionCode): the database migrates 5 to 7 on first open and keeps all data. **Installing over the debug build on the phone does not work** (different key): it needs the debug app uninstalled, which deletes its data. Export a JSON backup first, then import it into the release app.
 - Not installed on the phone.
+
+## History is a dropdown, grouped by month (board card: fix the way history is shown)
+- **The "History" row is closed by default, always** (asked for), whatever the number of entries: `▸ History · 100 entries`. Tap to open. It does not remember being open: it starts closed each time you open the tracker.
+- **Inside: one section per month**, newest first: `▾ November 2026 · 312 pages · 14 days`. **This month starts open**, older months closed. Tap a month to open or close it. Several months can be open together.
+- **Inside a month: day headers** (`Today`, `Yesterday`, `Thu Nov 5`) with the day's total, and the entries under them. The date is no longer repeated on every row. Edit and Delete work exactly as before (timed entries still open the Edit time screen).
+- **Pure and unit-tested:** `ui/HistoryGroups.kt` (`groupHistory`, `dayHeader`, `monthSummary`, `HistoryGroupsTest`): grouping, order, totals, day counts, same month in different years, every entry appears once.
+- **Open months are saved as one text** (`2026-11,2026-10`) so rotation does not lose them.
+- **SQLite export: dropped** by you (not building it). Backup and import are unchanged.
+- Instrumented tests not run (nothing in the data layer changed).

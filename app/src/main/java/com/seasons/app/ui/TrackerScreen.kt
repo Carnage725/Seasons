@@ -1,6 +1,7 @@
 package com.seasons.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,6 +59,7 @@ import com.seasons.app.ui.charts.describeAveragePace
 import com.seasons.app.ui.charts.describeOnTrack
 import com.seasons.app.ui.charts.SeasonHeatmap
 import java.time.LocalDate
+import java.time.YearMonth
 
 /** Header, status line, today/quick-log, streaks, history. Charts come in Phase 4. */
 @Composable
@@ -82,6 +85,9 @@ fun TrackerScreen(
     var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deletingId by rememberSaveable { mutableStateOf<Long?>(null) }
     var menuOpen by rememberSaveable { mutableStateOf(false) }
+    // History starts closed every time. Months are kept as one comma-separated text so it survives rotation.
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
+    var openMonthsText by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
     var confirmArchive by rememberSaveable { mutableStateOf(false) }
 
     if (ui == null) {
@@ -94,6 +100,8 @@ fun TrackerScreen(
     val t = ui.tracker
     val s = ui.summary
     val color = Color(t.color)
+    val months = remember(ui.logs) { groupHistory(ui.logs) }
+    val openMonths = remember(openMonthsText) { openMonthsText.split(",").filter { it.isNotEmpty() }.toSet() }
     val editingEntry = ui.logs.firstOrNull { it.id == editingId }
     val deletingEntry = ui.logs.firstOrNull { it.id == deletingId }
 
@@ -324,18 +332,51 @@ fun TrackerScreen(
                 }
             }
             // 7. History
-            item {
-                Text("History", color = Grey1, style = MaterialTheme.typography.labelLarge)
-            }
-            if (ui.logs.isEmpty()) {
-                item { Text("Nothing logged yet.", color = Grey1) }
-            }
-            items(ui.logs, key = { it.id }) { entry ->
-                HistoryRow(
-                    entry, t.unit, today,
-                    onEdit = { if (entry.isTimed) onEditTime(entry.id) else editingId = entry.id },
-                    onDelete = { deletingId = entry.id },
+            // Closed by default, always. Inside: one section per month, this month open.
+            item(key = "history-header") {
+                CollapseHeader(
+                    title = "History",
+                    detail = if (ui.logs.size == 1) "1 entry" else "${ui.logs.size} entries",
+                    open = historyOpen,
+                    onClick = { historyOpen = !historyOpen },
+                    color = Grey1,
                 )
+            }
+            if (historyOpen) {
+                if (ui.logs.isEmpty()) {
+                    item(key = "history-empty") { Text("Nothing logged yet.", color = Grey1) }
+                }
+                months.forEach { month ->
+                    val monthOpen = month.key in openMonths
+                    item(key = "month-${month.key}") {
+                        CollapseHeader(
+                            title = month.title,
+                            detail = monthSummary(month, t.unit),
+                            open = monthOpen,
+                            onClick = {
+                                openMonthsText = (if (monthOpen) openMonths - month.key else openMonths + month.key).joinToString(",")
+                            },
+                            color = TextMain,
+                        )
+                    }
+                    if (monthOpen) {
+                        month.days.forEach { day ->
+                            item(key = "day-${day.date}") {
+                                Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                    Text(dayHeader(day.date, today), color = Grey1, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                    Text("${formatAmount(day.total)} ${t.unit}", color = Grey1, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            items(day.entries, key = { "entry-${it.id}" }) { entry ->
+                                HistoryRow(
+                                    entry, t.unit,
+                                    onEdit = { if (entry.isTimed) onEditTime(entry.id) else editingId = entry.id },
+                                    onDelete = { deletingId = entry.id },
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -418,12 +459,24 @@ private fun LogButton(label: String, color: Color, modifier: Modifier, onClick: 
     ) { Text(label, fontSize = 18.sp, fontWeight = FontWeight.Medium) }
 }
 
+/** A tappable section title with a count or total on the right and a small arrow. */
 @Composable
-private fun HistoryRow(entry: LogEntry, unit: String, today: LocalDate, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun CollapseHeader(title: String, detail: String, open: Boolean, onClick: () -> Unit, color: Color) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(if (open) "▾" else "▸", color = Grey1, modifier = Modifier.width(20.dp))
+        Text(title, color = color, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        Text(detail, color = Grey1, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun HistoryRow(entry: LogEntry, unit: String, onEdit: () -> Unit, onDelete: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("${formatAmount(entry.amount)} $unit")
-            Text(formatDate(entry.date, today), color = Grey1, style = MaterialTheme.typography.bodySmall)
             entry.timeText()?.let { Text(it, color = Grey1, style = MaterialTheme.typography.bodySmall) }
         }
         TextButton(onClick = onEdit) { Text("Edit") }
