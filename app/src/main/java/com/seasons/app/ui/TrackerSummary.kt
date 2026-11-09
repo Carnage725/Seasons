@@ -23,6 +23,8 @@ data class StreakLabels(val current: String, val best: String, val average: Stri
 data class TrackerSummary(
     val headline: String,
     val subline: String?,
+    /** The lines under the headline on the tracker screen: "50 topics left", "17% completed". The widget uses [subline]. */
+    val detailLines: List<String>,
     val progress: Float,
     /** Goals with a deadline: "Need 10 pages/day · 10 days left". Null otherwise. */
     val needLine: String?,
@@ -42,6 +44,7 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
 
     val headline: String
     val subline: String?
+    val detailLines: List<String>
     val progress: Double
     var needLine: String? = null
     var goalReached = false
@@ -51,6 +54,7 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
         val p = goalProgress(totals, target)
         headline = "${formatAmount(p.done)} / ${formatAmount(target)} $unit"
         subline = "${formatAmount(p.left)} left · ${Math.round(p.fraction * 100)}%"
+        detailLines = listOf("${formatAmount(p.left)} $unit left", "${Math.round(p.fraction * 100)}% completed")
         progress = p.fraction
         goalReached = p.left <= 0.0
         needLine = needLine(tracker, p.left, today)
@@ -61,10 +65,12 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
             .count { (totals[it] ?: 0.0) > 0.0 }
         headline = if (band != null) "$active / ${range(band)} days" else "$active days"
         subline = "active this week"
+        detailLines = listOf("active this week")
         progress = if (band != null && band.lower > 0.0) active / band.lower else 0.0
     } else {
         headline = if (band != null) "${formatAmount(todayTotal)} / ${range(band)} $unit" else "${formatAmount(todayTotal)} $unit"
         subline = "today"
+        detailLines = listOf("today")
         progress = if (band != null && band.lower > 0.0) todayTotal / band.lower else 0.0
     }
 
@@ -82,6 +88,7 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
     return TrackerSummary(
         headline = headline,
         subline = subline,
+        detailLines = detailLines,
         progress = progress.coerceIn(0.0, 1.0).toFloat(),
         needLine = needLine,
         goalReached = goalReached,

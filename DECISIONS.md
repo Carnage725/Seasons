@@ -283,3 +283,9 @@
 - **Open months are saved as one text** (`2026-11,2026-10`) so rotation does not lose them.
 - **SQLite export: dropped** by you (not building it). Backup and import are unchanged.
 - Instrumented tests not run (nothing in the data layer changed).
+
+## Goal header: "left" and "% completed" on separate lines (board card)
+- **Tracker screen:** a goal shows `50 topics left` and `17% completed` on two lines, with the tracker's own unit as typed. Before: `50 left · 17%`. Over the target it reads `0 pages left` and `125% completed`.
+- **New field `TrackerSummary.detailLines`** holds the lines for the tracker screen. **The widget keeps the one-line `subline`** (`50 left · 17%`), because widget lines are one line high and the unit would not fit. Not asked to change.
+- **Ongoing trackers** are unchanged (`today`, `active this week`).
+- No data change. Instrumented tests not run.
