@@ -289,3 +289,13 @@
 - **New field `TrackerSummary.detailLines`** holds the lines for the tracker screen. **The widget keeps the one-line `subline`** (`50 left · 17%`), because widget lines are one line high and the unit would not fit. Not asked to change.
 - **Ongoing trackers** are unchanged (`today`, `active this week`).
 - No data change. Instrumented tests not run.
+
+## Finish estimate (board card: estimate when the tracker will get over)
+- **Goals only** (trackers with a target), with or without a deadline. Ongoing trackers have no estimate.
+- **Pace** = what you logged in the **last 14 days (today included) divided by 14**. Days with nothing logged count as zero, so rest days lower the pace (agreed). A tracker younger than 14 days uses the days since its start (at least 1). There is **no minimum number of days**: a tracker started today with one big log gives an optimistic date.
+- **Date** = today + `ceil(left / pace)` days. Exact divisions are not rounded up.
+- **Line on the tracker screen**, under "N <unit> left / % completed": `On this pace: done by Nov 25 (16 days)`. With a deadline it adds ` · 3 days ahead`, ` · 5 days late` or ` · right on the deadline` (finish date against the deadline). If a deadline already passed it still shows the estimate and how late.
+- **No log in the last 14 days:** `No pace yet`. **Goal reached:** no line. The existing "Need X/day" line stays as it was.
+- **Not changed:** Home cards, the widget, the charts.
+- **Pure and unit-tested:** `estimateFinish` (`domain/Stats.kt`) and the line text (`TrackerSummary.kt`): window, young tracker, started today, exact division, zero pace, ahead/late/on time, singular day.
+- No data change. Instrumented tests not run.

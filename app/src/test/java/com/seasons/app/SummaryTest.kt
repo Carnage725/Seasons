@@ -147,4 +147,46 @@ class SummaryTest {
         assertNotNull(validateBandBounds(BandPeriod.WEEKLY, "8"))
         assertNull(validateBandBounds(BandPeriod.WEEKLY, "7"))
     }
+
+    // ---------- finish estimate line ----------
+
+    @Test fun estimateLine_noDeadline() {
+        // 70 pages in the last 14 days: 5 per day. 200 target, 70 done -> 130 left -> 26 days.
+        val s = buildTrackerSummary(goal(), listOf(log(0, 30.0), log(5, 20.0), log(13, 20.0)), emptyList(), today)
+        assertEquals("On this pace: done by Nov 2 (26 days)", s.estimateLine)
+    }
+
+    @Test fun estimateLine_withDeadline_aheadLateAndOnTime() {
+        val logs = listOf(log(0, 70.0)) // 70 in 14 days = 5/day, 130 left = 26 days -> Nov 2
+        assertEquals(
+            "On this pace: done by Nov 2 (26 days) · 3 days ahead",
+            buildTrackerSummary(goal(deadline = today.plusDays(29)), logs, emptyList(), today).estimateLine,
+        )
+        assertEquals(
+            "On this pace: done by Nov 2 (26 days) · 1 day late",
+            buildTrackerSummary(goal(deadline = today.plusDays(25)), logs, emptyList(), today).estimateLine,
+        )
+        assertEquals(
+            "On this pace: done by Nov 2 (26 days) · right on the deadline",
+            buildTrackerSummary(goal(deadline = today.plusDays(26)), logs, emptyList(), today).estimateLine,
+        )
+    }
+
+    @Test fun estimateLine_noRecentLogs_saysNoPaceYet() {
+        assertEquals("No pace yet", buildTrackerSummary(goal(), listOf(log(20, 50.0)), emptyList(), today).estimateLine)
+        assertEquals("No pace yet", buildTrackerSummary(goal(), emptyList(), emptyList(), today).estimateLine)
+    }
+
+    @Test fun estimateLine_goalReached_orOngoing_isNull() {
+        assertNull(buildTrackerSummary(goal(target = 10.0), listOf(log(0, 12.0)), emptyList(), today).estimateLine)
+        assertNull(buildTrackerSummary(ongoing(BandPeriod.DAILY), listOf(log(0, 3.0)), emptyList(), today).estimateLine)
+    }
+
+    @Test fun estimateLine_oneDay_isSingular() {
+        val s = buildTrackerSummary(goal(target = 10.0), listOf(log(0, 14.0).copy(amount = 9.0)), emptyList(), today)
+        // 9 in 14 days = 0.64/day, 1 left -> 2 days. Use a bigger pace for exactly 1 day:
+        val s2 = buildTrackerSummary(goal(target = 150.0), listOf(log(0, 140.0)), emptyList(), today)
+        assertEquals("On this pace: done by Oct 8 (1 day)", s2.estimateLine) // 10 per day, 10 left
+        assertEquals("On this pace: done by Oct 9 (2 days)", s.estimateLine)
+    }
 }

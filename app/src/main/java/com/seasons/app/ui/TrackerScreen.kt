@@ -251,6 +251,7 @@ fun TrackerScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(s.headline, fontSize = 40.sp, fontWeight = FontWeight.Medium, lineHeight = 46.sp)
                     s.detailLines.forEach { Text(it, color = Grey1, style = MaterialTheme.typography.titleMedium) }
+                    s.estimateLine?.let { Text(it, color = Grey1, style = MaterialTheme.typography.bodyMedium) }
                     Spacer(Modifier.height(12.dp))
                     LinearProgressIndicator(
                         progress = { s.progress },

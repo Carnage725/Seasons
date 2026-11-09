@@ -3,6 +3,7 @@ package com.seasons.app
 import com.seasons.app.domain.Band
 import com.seasons.app.domain.bandOn
 import com.seasons.app.domain.dailyStreakRuns
+import com.seasons.app.domain.estimateFinish
 import com.seasons.app.domain.dailyStreaks
 import com.seasons.app.domain.daysRemaining
 import com.seasons.app.domain.neededPerDay
@@ -293,5 +294,40 @@ class StatsTest {
         assertEquals(LocalDate.of(2026, 9, 21), runs[0].start)
         assertEquals(LocalDate.of(2026, 10, 11), runs[0].end) // Sunday of the current week, after today
         assertEquals(true, runs[0].current)
+    }
+
+    // ---------- finish estimate ----------
+
+    @Test fun estimate_usesTheLastFourteenDays_zeroDaysCount() {
+        // 70 pages in the last 14 days -> 5 per day. 76 left -> 15.2 -> 16 days.
+        val t = totals(0 to 30.0, -5 to 20.0, -13 to 20.0, -14 to 999.0) // day -14 is outside the window
+        val e = estimateFinish(t, 76.0, day(-60), today)!!
+        assertEquals(5.0, e.pacePerDay, 1e-9)
+        assertEquals(16, e.daysNeeded)
+        assertEquals(day(16), e.finishDate)
+    }
+
+    @Test fun estimate_youngTracker_usesOnlyDaysSinceStart() {
+        // Started 2 days ago: window is 3 days. 6 logged -> 2 per day. 10 left -> 5 days.
+        val e = estimateFinish(totals(-2 to 3.0, 0 to 3.0), 10.0, day(-2), today)!!
+        assertEquals(2.0, e.pacePerDay, 1e-9)
+        assertEquals(5, e.daysNeeded)
+    }
+
+    @Test fun estimate_startedToday_windowIsOneDay() {
+        val e = estimateFinish(totals(0 to 4.0), 8.0, today, today)!!
+        assertEquals(4.0, e.pacePerDay, 1e-9)
+        assertEquals(2, e.daysNeeded)
+    }
+
+    @Test fun estimate_exactDivision_isNotRoundedUp() {
+        assertEquals(10, estimateFinish(totals(0 to 14.0), 10.0, day(-60), today)!!.daysNeeded) // 1 per day, 10 left
+    }
+
+    @Test fun estimate_nothingLeft_orNoPace_isNull() {
+        assertNull(estimateFinish(totals(0 to 5.0), 0.0, day(-60), today))
+        assertNull(estimateFinish(totals(0 to 5.0), -3.0, day(-60), today))
+        assertNull(estimateFinish(emptyMap(), 10.0, day(-60), today))
+        assertNull(estimateFinish(totals(-20 to 50.0), 10.0, day(-60), today)) // only old logs
     }
 }

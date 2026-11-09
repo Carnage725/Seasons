@@ -33,6 +33,30 @@ fun daysRemaining(deadline: LocalDate, today: LocalDate): Int =
 fun neededPerDay(left: Double, deadline: LocalDate, today: LocalDate): Double =
     left / daysRemaining(deadline, today)
 
+// ---------- Finish estimate (goals) ----------
+
+data class FinishEstimate(val pacePerDay: Double, val daysNeeded: Int, val finishDate: LocalDate)
+
+/**
+ * When the goal is done if you keep the pace of the last [window] days (today included; fewer days if the
+ * tracker started later). Days with nothing logged count as zero. Null when nothing is left or the pace is zero.
+ */
+fun estimateFinish(
+    totals: Map<LocalDate, Double>,
+    left: Double,
+    startDate: LocalDate,
+    today: LocalDate,
+    window: Int = 14,
+): FinishEstimate? {
+    if (left <= 0.0) return null
+    val days = max(1L, minOf(window.toLong(), ChronoUnit.DAYS.between(startDate, today) + 1)).toInt()
+    val sum = (0 until days).sumOf { totals[today.minusDays(it.toLong())] ?: 0.0 }
+    val pace = sum / days
+    if (pace <= 0.0) return null
+    val needed = Math.ceil(left / pace).toInt()
+    return FinishEstimate(pace, needed, today.plusDays(needed.toLong()))
+}
+
 // ---------- Daily streaks ----------
 
 data class StreakStats(val current: Int, val best: Int, val average: Double)
