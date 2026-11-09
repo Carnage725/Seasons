@@ -48,9 +48,9 @@ import com.seasons.app.data.TrackerType
 import com.seasons.app.ui.charts.BarChart
 import com.seasons.app.domain.formatMinutes
 import com.seasons.app.ui.charts.AveragePaceChart
-import com.seasons.app.ui.charts.BarChartModel
 import com.seasons.app.domain.formatClock
 import com.seasons.app.ui.charts.ChartTabs
+import com.seasons.app.ui.charts.DayLineChart
 import com.seasons.app.ui.charts.StreakChart
 import com.seasons.app.ui.charts.describeStreaks
 import com.seasons.app.ui.charts.OnTrackChart
@@ -413,7 +413,7 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
             }
             "Time" -> {
                 val time = ui.charts.time
-                if (time != null) TimeTab(time, ui.charts.daily, color, ui.tracker.unit)
+                if (time != null) TimeTab(time, color, ui.tracker.unit)
             }
             else -> {
                 val onTrack = ui.charts.onTrack
@@ -430,16 +430,16 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
     }
 }
 
-/** Time per day on top, amount per day below. Same 14 days, each chart on its own scale. */
+/** Time per day on top, pace (work per hour) below. Same 14 days, each chart on its own scale. */
 @Composable
-private fun TimeTab(time: TimeTabModel, amount: BarChartModel, color: Color, unit: String) {
+private fun TimeTab(time: TimeTabModel, color: Color, unit: String) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Time per day", color = Grey1, style = MaterialTheme.typography.labelLarge)
-        BarChart(time.minutes, Grey1, describeTimeChart(time.minutes), valueText = { formatMinutes(it.toLong()) })
-        Text("$unit per day", color = Grey1, style = MaterialTheme.typography.labelLarge)
-        BarChart(amount, color, describeBarChart("Amount chart, last 14 days", amount, unit))
+        DayLineChart(time.minutes, Grey1, describeTimeChart(time.minutes), valueText = { formatMinutes(it.toLong()) })
+        Text("Pace: $unit per hour", color = Grey1, style = MaterialTheme.typography.labelLarge)
+        DayLineChart(time.pace, color, describePaceChart(time.pace, unit), valueText = ::paceText)
         time.perHour?.let { Text(it, fontWeight = FontWeight.Medium) }
-        Text("Last 14 days. Only stopwatch entries count toward the hourly average.", color = Grey1, style = MaterialTheme.typography.bodySmall)
+        Text("Last 14 days. Only stopwatch entries count. Days without the stopwatch are skipped, not zero.", color = Grey1, style = MaterialTheme.typography.bodySmall)
     }
 }
 

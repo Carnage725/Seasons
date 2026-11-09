@@ -288,6 +288,21 @@ fun buildAveragePace(
     )
 }
 
+// ---------- Line over days (Time tab) ----------
+
+/**
+ * One value per day, oldest first. A null value means "no data that day": no dot, and the line is joined
+ * across it, so a gap is not read as zero.
+ */
+data class DayLineModel(
+    val values: List<Double?>,
+    /** Day text for each value, shown when a dot is tapped. */
+    val dayLabels: List<String>,
+    val maxY: Double,
+    val firstLabel: String,
+    val lastLabel: String,
+)
+
 // ---------- Recent streaks ----------
 
 data class StreakBar(

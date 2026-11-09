@@ -68,13 +68,38 @@ class TimeStatsTest {
         assertNull(buildTimeTab(emptyList(), "pages", today))
     }
 
-    @Test fun timeTab_barsAreMinutesPerDay_lastFourteenDays() {
-        val logs = listOf(timed(1, today, 30), timed(2, today, 15), timed(3, today.minusDays(13), 20), timed(4, today.minusDays(14), 99))
+    @Test fun timeTab_minutesLine_daysWithoutTimeAreNullNotZero() {
+        val logs = listOf(timed(1, today, 30), timed(2, today, 15), timed(3, today.minusDays(13), 20), timed(4, today.minusDays(14), 99), plain(5, today.minusDays(2)))
         val m = buildTimeTab(logs, "pages", today)!!.minutes
-        assertEquals(14, m.bars.size)
-        assertEquals(45.0, m.bars.last().value, 0.0)
-        assertEquals(20.0, m.bars.first().value, 0.0) // day 14 days ago is outside the window
+        assertEquals(14, m.values.size)
+        assertEquals(45.0, m.values.last()!!, 0.0)
+        assertEquals(20.0, m.values.first()!!, 0.0) // 14 days ago is outside the window
+        assertNull(m.values[11]) // a day with only a plain entry has no time
+        assertNull(m.values[5])
         assertEquals(45.0, m.maxY, 0.0)
+        assertEquals("Today", m.lastLabel)
+        assertEquals(14, m.dayLabels.size)
+    }
+
+    @Test fun timeTab_paceLine_isAmountPerHourThatDay() {
+        // Day A: 30 pages in 60 min = 30/h. Day B: two entries, 10 pages in 20 min and 10 pages in 40 min = 20 pages in 1 h = 20/h.
+        val logs = listOf(
+            timed(1, today, 60, amount = 30.0),
+            timed(2, today.minusDays(1), 20, amount = 10.0),
+            timed(3, today.minusDays(1), 40, amount = 10.0),
+            plain(4, today), // a plain entry on the same day never counts
+        )
+        val p = buildTimeTab(logs, "pages", today)!!.pace
+        assertEquals(30.0, p.values.last()!!, 1e-9)
+        assertEquals(20.0, p.values[12]!!, 1e-9)
+        assertNull(p.values[0])
+        assertEquals(30.0, p.maxY, 0.0)
+    }
+
+    @Test fun timeTab_emptyLine_axisStillHasAHeight() {
+        val m = buildTimeTab(listOf(timed(1, today.minusDays(30), 10)), "pages", today)!!
+        assertEquals(1.0, m.minutes.maxY, 0.0)
+        assertEquals(true, m.minutes.values.all { it == null })
     }
 
     @Test fun perHour_usesOnlyTimedEntries() {

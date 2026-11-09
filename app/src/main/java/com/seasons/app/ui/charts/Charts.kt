@@ -382,3 +382,66 @@ fun StreakChart(model: StreakChartModel, color: Color, description: String, modi
         }
     }
 }
+
+// ---------- Line over days (Time tab) ----------
+
+/** One dot per day with data, one line joining them (days without data are skipped, not drawn as zero). Tap a dot for its value. */
+@Composable
+fun DayLineChart(
+    model: DayLineModel,
+    color: Color,
+    description: String,
+    valueText: (Double) -> String,
+    modifier: Modifier = Modifier,
+) {
+    val measurer = rememberTextMeasurer()
+    var selected by remember(model) { mutableStateOf<Int?>(null) }
+    val rightPadPx = with(LocalDensity.current) { 56.dp.toPx() }
+    Canvas(
+        modifier.fillMaxWidth().height(150.dp)
+            .pointerInput(model) {
+                detectTapGestures { offset ->
+                    val hit = barIndexAt(offset.x, size.width - rightPadPx, model.values.size)
+                    selected = if (hit == null || hit == selected || model.values[hit] == null) null else hit
+                }
+            }
+            .semantics { contentDescription = description },
+    ) {
+        val rightPad = 56.dp.toPx()
+        val topPad = 20.dp.toPx()
+        val bottomPad = 22.dp.toPx()
+        val plotW = size.width - rightPad
+        val plotH = size.height - topPad - bottomPad
+        val n = model.values.size
+        val slot = plotW / n
+        fun x(i: Int) = i * slot + slot / 2f
+        fun y(v: Double) = topPad + plotH * (1f - (v / model.maxY).toFloat())
+        val baseY = y(0.0)
+        drawLine(Grey2, Offset(0f, baseY), Offset(plotW, baseY), strokeWidth = 1.dp.toPx())
+
+        val points = model.values.mapIndexedNotNull { i, v -> v?.let { i to it } }
+        if (points.size >= 2) {
+            val path = Path()
+            points.forEachIndexed { k, (i, v) -> if (k == 0) path.moveTo(x(i), y(v)) else path.lineTo(x(i), y(v)) }
+            drawPath(path, color, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+        points.forEach { (i, v) -> drawCircle(color, 3.5.dp.toPx(), Offset(x(i), y(v))) }
+
+        // Direct label: the latest dot.
+        points.lastOrNull()?.let { (i, v) ->
+            label(measurer, valueText(v), color, x(i) + 8.dp.toPx(), y(v) - 7.dp.toPx(), bold = true, backdrop = AppBackground)
+        }
+        // The tapped dot: ring, value above it, day in the top left.
+        val picked = selected?.takeIf { it in model.values.indices }
+        if (picked != null) {
+            val v = model.values[picked]
+            if (v != null) {
+                drawCircle(TextMain, 6.dp.toPx(), Offset(x(picked), y(v)), style = Stroke(1.5.dp.toPx()))
+                label(measurer, valueText(v), TextMain, x(picked), y(v) - 20.dp.toPx(), Anchor.CENTER, bold = true, backdrop = AppBackground)
+                label(measurer, model.dayLabels[picked], TextMain, 0f, 0f)
+            }
+        }
+        label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
+        label(measurer, model.lastLabel, Grey1, plotW, baseY + 5.dp.toPx(), Anchor.END)
+    }
+}

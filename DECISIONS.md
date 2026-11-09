@@ -299,3 +299,13 @@
 - **Not changed:** Home cards, the widget, the charts.
 - **Pure and unit-tested:** `estimateFinish` (`domain/Stats.kt`) and the line text (`TrackerSummary.kt`): window, young tracker, started today, exact division, zero pace, ahead/late/on time, singular day.
 - No data change. Instrumented tests not run.
+
+## Time tab: line graphs (board card: time should be a line graph, time vs pace vs day)
+- **Two stacked line charts on the same 14 days**, each on its own scale, no overlay (agreed):
+  1. **Time per day:** stopwatch minutes, grey line.
+  2. **Pace:** amount per stopwatch hour that day (that day's timed amounts divided by that day's timed hours), tracker color. Plain +1 / +5 entries never count, so they cannot inflate it.
+- **Days with no stopwatch entry have no dot, and the line is joined across them** (not drawn as zero). A day alone is a single dot. The note under the charts says so.
+- **Tap a dot** for its value and day (`45m`, `12/h`); tap again to clear. Latest dot is labeled directly. No legend, no gridlines, baseline at zero, axis top is the largest value shown.
+- **Removed from this tab:** the time bars and the amount bars (the Daily tab already has the amount bars). The `Avg N <unit>/hour` line stays.
+- **Pure and unit-tested:** `buildTimeTab` (minutes, pace, null days, window), `amountPerHour`. New `DayLineModel` and `DayLineChart`.
+- No data change. Instrumented tests not run.
