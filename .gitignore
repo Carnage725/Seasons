@@ -14,3 +14,5 @@ keystore.properties
 # Local assistant instructions, not published
 CLAUDE.md
 book.pdf
+# Release APKs are published as GitHub Releases, not committed
+Seasons-release/
