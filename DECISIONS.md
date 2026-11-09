@@ -323,3 +323,8 @@
 - **X axis (asked: "tap to see the date"):** the two end labels stay (first date and `Today` or the last date). **Tap a point:** a ring around it, its value above it (`2.4/day` or the running total), and its date in the top left. Tap it again to clear. Taps within 28 dp of a dot pick the nearest one.
 - **Pure and unit-tested:** `nearestIndex`, and the dates and value texts on both models.
 - No data change. Instrumented tests not run.
+
+## Release 1.3
+- `versionCode 4`, `versionName 1.3`. Built with `./gradlew assembleRelease`, copied to `Seasons-release/seasons-1.3.apk` (about 10.6 MB), same release key as 1.1 and 1.2 (checked with `apksigner verify`, same certificate). Same permissions, no internet. Code shrinking still off.
+- Installing over 1.1 or 1.2 keeps data (same key, higher versionCode); the database is already at version 7 from 1.2. Installing over the debug build needs the debug app uninstalled first, which deletes its data (export a JSON backup first).
+- Not installed on the phone.
