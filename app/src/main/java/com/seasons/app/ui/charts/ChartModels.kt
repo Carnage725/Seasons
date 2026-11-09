@@ -38,6 +38,13 @@ data class BarSpec(
     val label: String = "",
 )
 
+/** The point closest to a tap at [tapX], or null when there are no points or the tap is farther than [maxDistance] from all of them. */
+fun nearestIndex(tapX: Float, xs: List<Float>, maxDistance: Float): Int? {
+    if (xs.isEmpty()) return null
+    val best = xs.indices.minByOrNull { Math.abs(xs[it] - tapX) } ?: return null
+    return if (Math.abs(xs[best] - tapX) <= maxDistance) best else null
+}
+
 /** Which bar a tap at [x] hits, or null when the tap is outside the plot. */
 fun barIndexAt(x: Float, plotWidth: Float, barCount: Int): Int? {
     if (barCount <= 0 || plotWidth <= 0f || x < 0f || x >= plotWidth) return null
@@ -194,6 +201,9 @@ data class OnTrackModel(
     /** Goals with a deadline: straight line from (start, 0) to (deadline, target). */
     val needed: Pair<ChartPoint, ChartPoint>?,
     val cumulativeLabel: String,
+    /** One per cumulative point: the date, and the running total as text. For tapping a point. */
+    val pointDates: List<String>,
+    val pointValues: List<String>,
     val lineLabel: String?,
     val firstLabel: String,
     val lastLabel: String,
@@ -239,6 +249,8 @@ fun buildOnTrackChart(
         cumulative = cumulative,
         needed = needed,
         cumulativeLabel = formatAmount(done),
+        pointDates = cumulative.map { shortDate(start.plusDays(it.dayOffset.toLong()), today) },
+        pointValues = cumulative.map { formatAmount(it.value) },
         lineLabel = lineLabel,
         firstLabel = shortDate(start, today),
         lastLabel = shortDate(endDate, today),
@@ -253,6 +265,9 @@ data class AveragePaceModel(
     val points: List<ChartPoint>,
     val maxY: Double,
     val currentLabel: String,
+    /** One per point: the date, and the average as text ("2.4/day"). For tapping a point. */
+    val pointDates: List<String>,
+    val pointValues: List<String>,
     val firstLabel: String,
     val lastLabel: String,
 )
@@ -283,6 +298,8 @@ fun buildAveragePace(
         points = points,
         maxY = if (peak > 0.0) peak else 1.0,
         currentLabel = "${formatAmount(Math.round(values.last() * 10) / 10.0)}/day",
+        pointDates = dates.map { shortDate(it, today) },
+        pointValues = values.map { "${formatAmount(Math.round(it * 10) / 10.0)}/day" },
         firstLabel = shortDate(dates.first(), today),
         lastLabel = "Today",
     )

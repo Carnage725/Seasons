@@ -429,7 +429,7 @@ private fun ChartsSection(ui: TrackerUiState, color: Color, today: LocalDate) {
                 val onTrack = ui.charts.onTrack
                 val pace = ui.charts.pace
                 if (onTrack != null) {
-                    OnTrackChart(onTrack, color, describeOnTrack(onTrack, ui.tracker.unit))
+                    OnTrackChart(onTrack, color, describeOnTrack(onTrack, ui.tracker.unit), interactive = ui.tracker.deadline == null)
                 } else if (pace != null) {
                     AveragePaceChart(pace, color, describeAveragePace(pace, ui.tracker.unit))
                 } else {

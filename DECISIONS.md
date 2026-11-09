@@ -315,3 +315,11 @@
 - **Boxes sit 8 dp apart.** The tracker screen's list spaces its items 20 dp, which was the "far apart" look, so all day boxes of one month are drawn in **one list item** with 8 dp between boxes. Months and the closed-by-default dropdown are unchanged.
 - **Trade-off:** a month's boxes are built together (not lazily one by one). A month has at most about 31 boxes, so this is cheap.
 - No data change. Instrumented tests not run.
+
+## Pace charts: dots on every day, tap a point (board card: pace graph x axis points, larger points)
+- **Which charts:** the **Pace tab for ongoing trackers** (7-day average per day) and the **Pace tab for goals without a deadline** (cumulative progress). The On track chart (goal with a deadline) was not picked and is unchanged.
+- **Dots:** about 4 dp radius in the tracker color on every day, the latest dot bigger (1.4x) with its value label as before.
+- **Long goal charts:** a goal chart runs from the start date. Up to **45 days** it gets a dot on every day. **Beyond that only the latest dot is drawn**, because 200 dots on one line would be a smear. Tap still works on any day. The ongoing chart is 30 days, so it always has every dot.
+- **X axis (asked: "tap to see the date"):** the two end labels stay (first date and `Today` or the last date). **Tap a point:** a ring around it, its value above it (`2.4/day` or the running total), and its date in the top left. Tap it again to clear. Taps within 28 dp of a dot pick the nearest one.
+- **Pure and unit-tested:** `nearestIndex`, and the dates and value texts on both models.
+- No data change. Instrumented tests not run.

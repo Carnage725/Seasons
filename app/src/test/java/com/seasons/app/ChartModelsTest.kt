@@ -12,6 +12,7 @@ import com.seasons.app.ui.charts.buildOnTrackChart
 import com.seasons.app.ui.charts.buildSeasonModel
 import com.seasons.app.ui.charts.buildWeeklyChart
 import com.seasons.app.ui.charts.barIndexAt
+import com.seasons.app.ui.charts.nearestIndex
 import com.seasons.app.domain.StreakRun
 import com.seasons.app.ui.charts.buildAveragePace
 import com.seasons.app.ui.charts.buildStreakChart
@@ -372,5 +373,35 @@ class ChartModelsTest {
     @Test fun streakChart_weeklyEndNeverPastToday() {
         val m = buildStreakChart(listOf(StreakRun(d(-2), d(4), 1, current = true)), today, weekly = true)!!
         assertEquals(shortDate(today, today), m.bars[0].endLabel)
+    }
+
+    // ---------- tap a point on the pace charts ----------
+
+    @Test fun nearestIndex_picksTheClosestPoint_withinReach() {
+        val xs = listOf(0f, 50f, 100f)
+        assertEquals(0, nearestIndex(10f, xs, 30f))
+        assertEquals(1, nearestIndex(40f, xs, 30f))
+        assertEquals(2, nearestIndex(95f, xs, 30f))
+    }
+
+    @Test fun nearestIndex_tooFarOrNoPoints_isNull() {
+        assertNull(nearestIndex(200f, listOf(0f, 50f, 100f), 30f))
+        assertNull(nearestIndex(5f, emptyList(), 30f))
+    }
+
+    @Test fun pace_pointsCarryTheirDateAndValueText() {
+        val m = buildAveragePace(tracker(), totals(0 to 7.0), today)!!
+        assertEquals(m.points.size, m.pointDates.size)
+        assertEquals(m.points.size, m.pointValues.size)
+        assertEquals("1/day", m.pointValues.last())
+        assertEquals(shortDate(today, today), m.pointDates.last())
+    }
+
+    @Test fun onTrack_pointsCarryTheirDateAndTotalText() {
+        val m = buildOnTrackChart(goal(), goalLogs, today)!!
+        assertEquals(m.cumulative.size, m.pointDates.size)
+        assertEquals(m.cumulative.size, m.pointValues.size)
+        assertEquals(m.cumulativeLabel, m.pointValues.last())
+        assertEquals(shortDate(today, today), m.pointDates.last())
     }
 }

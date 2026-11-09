@@ -249,9 +249,31 @@ fun SeasonHeatmap(model: SeasonModel, color: Color, unit: String, today: LocalDa
 // ---------- On track (goals) ----------
 
 @Composable
-fun OnTrackChart(model: OnTrackModel, color: Color, description: String, modifier: Modifier = Modifier) {
+fun OnTrackChart(
+    model: OnTrackModel,
+    color: Color,
+    description: String,
+    modifier: Modifier = Modifier,
+    /** Goals without a deadline (the Pace tab): dots on the line, and tap a point for its date and total. */
+    interactive: Boolean = false,
+) {
     val measurer = rememberTextMeasurer()
-    Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
+    var selected by remember(model) { mutableStateOf<Int?>(null) }
+    val density = LocalDensity.current
+    Canvas(
+        modifier.fillMaxWidth().height(190.dp)
+            .pointerInput(model, interactive) {
+                if (interactive) {
+                    detectTapGestures { offset ->
+                        val plotW = size.width - with(density) { 84.dp.toPx() }
+                        val xs = model.cumulative.map { plotW * it.dayOffset / model.maxDayOffset.toFloat() }
+                        val hit = nearestIndex(offset.x, xs, with(density) { 28.dp.toPx() })
+                        selected = if (hit == null || hit == selected) null else hit
+                    }
+                }
+            }
+            .semantics { contentDescription = description },
+    ) {
         val rightPad = 84.dp.toPx()
         val topPad = 20.dp.toPx()
         val bottomPad = 22.dp.toPx()
@@ -287,6 +309,19 @@ fun OnTrackChart(model: OnTrackModel, color: Color, description: String, modifie
             }
             drawPath(path, color, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
+        if (interactive) {
+            // A dot on every day up to 45 days; a longer chart shows only the latest dot (tap still works anywhere).
+            val dotRadius = 4.dp.toPx()
+            if (points.size <= 45) points.forEach { p -> drawCircle(color, dotRadius, Offset(x(p.dayOffset), y(p.value))) }
+            drawCircle(color, dotRadius * 1.4f, Offset(x(points.last().dayOffset), y(points.last().value)))
+            val picked = selected?.takeIf { it in points.indices }
+            if (picked != null) {
+                val p = points[picked]
+                drawCircle(TextMain, dotRadius * 1.9f, Offset(x(p.dayOffset), y(p.value)), style = Stroke(1.5.dp.toPx()))
+                label(measurer, model.pointValues[picked], TextMain, x(p.dayOffset), y(p.value) - 22.dp.toPx(), Anchor.CENTER, bold = true, backdrop = AppBackground)
+                label(measurer, model.pointDates[picked], TextMain, 0f, 0f)
+            }
+        }
 
         // Direct labels at the line ends.
         val lastPoint = points.last()
@@ -315,7 +350,21 @@ fun OnTrackChart(model: OnTrackModel, color: Color, description: String, modifie
 @Composable
 fun AveragePaceChart(model: AveragePaceModel, color: Color, description: String, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
-    Canvas(modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
+    var selected by remember(model) { mutableStateOf<Int?>(null) }
+    val density = LocalDensity.current
+    Canvas(
+        modifier.fillMaxWidth().height(190.dp)
+            .pointerInput(model) {
+                detectTapGestures { offset ->
+                    val plotW = size.width - with(density) { 64.dp.toPx() }
+                    val last = max(1, model.points.size - 1)
+                    val xs = model.points.indices.map { plotW * it / last.toFloat() }
+                    val hit = nearestIndex(offset.x, xs, with(density) { 28.dp.toPx() })
+                    selected = if (hit == null || hit == selected) null else hit
+                }
+            }
+            .semantics { contentDescription = description },
+    ) {
         val rightPad = 64.dp.toPx()
         val topPad = 20.dp.toPx()
         val bottomPad = 22.dp.toPx()
@@ -339,7 +388,19 @@ fun AveragePaceChart(model: AveragePaceModel, color: Color, description: String,
             drawPath(path, color, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
 
-        label(measurer, "Avg per day, 7 days", Grey1, 0f, 0f)
+        // A dot on every day; the latest one is bigger.
+        val dotRadius = 4.dp.toPx()
+        points.forEachIndexed { i, p -> drawCircle(color, dotRadius, Offset(x(i), y(p.value))) }
+        drawCircle(color, dotRadius * 1.4f, Offset(x(points.size - 1), y(points.last().value)))
+
+        val picked = selected?.takeIf { it in points.indices }
+        if (picked != null) {
+            drawCircle(TextMain, dotRadius * 1.9f, Offset(x(picked), y(points[picked].value)), style = Stroke(1.5.dp.toPx()))
+            label(measurer, model.pointValues[picked], TextMain, x(picked), y(points[picked].value) - 22.dp.toPx(), Anchor.CENTER, bold = true, backdrop = AppBackground)
+            label(measurer, model.pointDates[picked], TextMain, 0f, 0f)
+        } else {
+            label(measurer, "Avg per day, 7 days", Grey1, 0f, 0f)
+        }
         val end = points.last()
         label(measurer, model.currentLabel, color, x(points.size - 1) + 6.dp.toPx(), y(end.value) - 7.dp.toPx(), bold = true, backdrop = AppBackground)
         label(measurer, model.firstLabel, Grey1, 0f, baseY + 5.dp.toPx())
