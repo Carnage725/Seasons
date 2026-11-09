@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -361,19 +363,27 @@ fun TrackerScreen(
                         )
                     }
                     if (monthOpen) {
-                        month.days.forEach { day ->
-                            item(key = "day-${day.date}") {
-                                Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                                    Text(dayHeader(day.date, today), color = Grey1, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                                    Text("${formatAmount(day.total)} ${t.unit}", color = Grey1, style = MaterialTheme.typography.bodySmall)
+                        // All day boxes of the month in one item, so they sit close together (8dp), not 20dp apart.
+                        item(key = "days-${month.key}") {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                month.days.forEach { day ->
+                                    Column(
+                                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Grey3).padding(horizontal = 12.dp, vertical = 8.dp),
+                                    ) {
+                                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(dayHeader(day.date, today), color = TextMain, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                                            Text("${formatAmount(day.total)} ${t.unit}", color = Grey1, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        day.entries.forEach { entry ->
+                                            HorizontalDivider(color = Grey2.copy(alpha = 0.5f))
+                                            HistoryRow(
+                                                entry, t.unit,
+                                                onEdit = { if (entry.isTimed) onEditTime(entry.id) else editingId = entry.id },
+                                                onDelete = { deletingId = entry.id },
+                                            )
+                                        }
+                                    }
                                 }
-                            }
-                            items(day.entries, key = { "entry-${it.id}" }) { entry ->
-                                HistoryRow(
-                                    entry, t.unit,
-                                    onEdit = { if (entry.isTimed) onEditTime(entry.id) else editingId = entry.id },
-                                    onDelete = { deletingId = entry.id },
-                                )
                             }
                         }
                     }

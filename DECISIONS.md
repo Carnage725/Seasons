@@ -309,3 +309,9 @@
 - **Removed from this tab:** the time bars and the amount bars (the Daily tab already has the amount bars). The `Avg N <unit>/hour` line stays.
 - **Pure and unit-tested:** `buildTimeTab` (minutes, pace, null days, window), `amountPerHour`. New `DayLineModel` and `DayLineChart`.
 - No data change. Instrumented tests not run.
+
+## History: a box per day (board card: history looks too far apart, needs boxes per day)
+- **Each day is a rounded box** (dark grey `Grey3`, 12 dp corners): the day header (`Today`, `Thu Nov 5`) and the day's total at the top, then its entries, with a thin divider line between rows. Edit and Delete work as before.
+- **Boxes sit 8 dp apart.** The tracker screen's list spaces its items 20 dp, which was the "far apart" look, so all day boxes of one month are drawn in **one list item** with 8 dp between boxes. Months and the closed-by-default dropdown are unchanged.
+- **Trade-off:** a month's boxes are built together (not lazily one by one). A month has at most about 31 boxes, so this is cheap.
+- No data change. Instrumented tests not run.
