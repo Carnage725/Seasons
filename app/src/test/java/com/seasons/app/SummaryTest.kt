@@ -42,14 +42,14 @@ class SummaryTest {
         val s = buildTrackerSummary(goal(), listOf(log(0, 24.0), log(5, 100.0)), emptyList(), today)
         assertEquals("124 / 200 pages", s.headline)
         assertEquals("76 left · 62%", s.subline) // the widget keeps one line
-        assertEquals(listOf("76 pages left", "62% completed"), s.detailLines)
+        assertEquals(listOf("62% completed"), s.detailLines)
         assertEquals(0.62f, s.progress, 1e-6f)
     }
 
     @Test fun goalHeader_overTarget_leftZero_progressCapped() {
         val s = buildTrackerSummary(goal(target = 100.0), listOf(log(0, 125.0)), emptyList(), today)
         assertEquals("0 left · 125%", s.subline)
-        assertEquals(listOf("0 pages left", "125% completed"), s.detailLines)
+        assertEquals(listOf("125% completed"), s.detailLines)
         assertEquals(1f, s.progress, 0f)
     }
 
@@ -60,7 +60,6 @@ class SummaryTest {
         assertEquals("today", s.subline)
         assertEquals(1f, s.progress, 1e-6f) // over the minimum: capped at 100%
         assertNull(s.needLine)
-        assertEquals("Today 5 laps · minimum 3", s.todayLine)
     }
 
     @Test fun ongoingWeeklyHeader_activeDaysThisWeek() {
@@ -111,7 +110,7 @@ class SummaryTest {
 
     @Test fun summary_noPaceOrProjectionAnywhere() {
         val s = buildTrackerSummary(goal(deadline = today.plusDays(9)), listOf(log(0, 70.0)), emptyList(), today)
-        val all = listOfNotNull(s.headline, s.subline, s.needLine, s.todayLine) + s.detailLines.joinToString(" ")
+        val all = listOfNotNull(s.headline, s.subline, s.needLine) + s.detailLines.joinToString(" ")
         assertFalse(all.contains("You "))
         assertFalse(all.contains("finish"))
         assertFalse(all.contains("On track"))

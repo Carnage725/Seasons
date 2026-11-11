@@ -2,7 +2,6 @@ package com.seasons.app
 
 import com.seasons.app.data.LogEntry
 import com.seasons.app.ui.amountPerHour
-import com.seasons.app.ui.buildTimeLine
 import com.seasons.app.ui.buildTimeTab
 import com.seasons.app.ui.minutesByDay
 import com.seasons.app.ui.timeText
@@ -33,25 +32,6 @@ class TimeStatsTest {
         val end = ms(today, 0, 20)
         val e = LogEntry(1, 1, today, 2.0, 0, startTime = start, endTime = end)
         assertEquals(mapOf(today to 30L), listOf(e).minutesByDay())
-    }
-
-    @Test fun timeLine_nullWithoutAnyStopwatchEntry() {
-        assertNull(buildTimeLine(emptyList(), today))
-        assertNull(buildTimeLine(listOf(plain(1, today)), today))
-    }
-
-    @Test fun timeLine_todayAndLast14Days() {
-        val logs = listOf(
-            timed(1, today, 45),
-            timed(2, today.minusDays(13), 60), // inside the 14 days
-            timed(3, today.minusDays(14), 600), // outside
-            timed(4, today.minusDays(5), 15),
-        )
-        assertEquals("Time today 45m · last 14 days 2h", buildTimeLine(logs, today))
-    }
-
-    @Test fun timeLine_zeroToday_isZeroMinutes() {
-        assertEquals("Time today 0m · last 14 days 20m", buildTimeLine(listOf(timed(1, today.minusDays(1), 20)), today))
     }
 
     @Test fun timeText_rangeAndDuration_nullForPlain() {

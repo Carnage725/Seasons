@@ -40,7 +40,6 @@ data class TrackerUiState(
     val band: Band?,
     val charts: ChartsData,
     /** Stopwatch totals, or null when the tracker has no stopwatch entries. */
-    val timeLine: String?,
 )
 
 /** Null parts: the season chart needs settings (loading), the On track chart is for goals only. */
@@ -77,7 +76,6 @@ class TrackerViewModel(private val repo: Repository, private val trackerId: Long
                 logs = logs,
                 summary = buildTrackerSummary(tracker, logs, bandList, today),
                 band = bandOn(bandList, today),
-                timeLine = buildTimeLine(logs, today),
                 charts = ChartsData(
                     daily = buildDailyChart(tracker, totals, bandList, today),
                     weekly = buildWeeklyChart(tracker, totals, bandList, today),

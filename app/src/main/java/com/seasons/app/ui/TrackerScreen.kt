@@ -284,7 +284,6 @@ fun TrackerScreen(
             // 3. Today: quick log
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(s.todayLine, color = Grey1)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         LogButton("+1", color, Modifier.weight(1f)) {
                             vm.addLog(logDate, 1.0)
@@ -308,16 +307,9 @@ fun TrackerScreen(
                     }
                 }
             }
-            ui.timeLine?.let { line -> item { Text(line, color = Grey1) } }
-            // 4. Streaks
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                    StreakStat("Current streak", s.streaks.current)
-                    StreakStat("Avg streak", s.streaks.average)
-                    if (t.type == TrackerType.ONGOING) {
-                        StreakStat("Total ${t.unit}", formatAmount(ui.logs.sumOf { it.amount }))
-                    }
-                }
+            // 4. Total (ongoing trackers only; goals show their progress in the header)
+            if (t.type == TrackerType.ONGOING) {
+                item { StreakStat("Total ${t.unit}", formatAmount(ui.logs.sumOf { it.amount })) }
             }
             // 5. Charts
             item { ChartsSection(ui, color, today) }

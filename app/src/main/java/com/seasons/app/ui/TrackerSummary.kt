@@ -36,7 +36,6 @@ data class TrackerSummary(
     /** A goal whose total has reached the target. */
     val goalReached: Boolean,
     val streaks: StreakLabels,
-    val todayLine: String,
 )
 
 fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band>, today: LocalDate): TrackerSummary {
@@ -60,7 +59,7 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
         val p = goalProgress(totals, target)
         headline = "${formatAmount(p.done)} / ${formatAmount(target)} $unit"
         subline = "${formatAmount(p.left)} left · ${Math.round(p.fraction * 100)}%"
-        detailLines = listOf("${formatAmount(p.left)} $unit left", "${Math.round(p.fraction * 100)}% completed")
+        detailLines = listOf("${Math.round(p.fraction * 100)}% completed")
         progress = p.fraction
         goalReached = p.left <= 0.0
         needLine = needLine(tracker, p.left, today)
@@ -87,11 +86,6 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
         dailyStreaks(totals, bands, tracker.bandPeriod == BandPeriod.DAILY, tracker.startDate, today)
     }
 
-    val todayLine = buildString {
-        append("Today ${formatAmount(todayTotal)} $unit")
-        if (dailyBand != null) append(" · minimum ${range(dailyBand)}")
-    }
-
     return TrackerSummary(
         headline = headline,
         subline = subline,
@@ -101,7 +95,6 @@ fun buildTrackerSummary(tracker: Tracker, logs: List<LogEntry>, bands: List<Band
         needLine = needLine,
         goalReached = goalReached,
         streaks = streakLabels(streaks, weekly),
-        todayLine = todayLine,
     )
 }
 

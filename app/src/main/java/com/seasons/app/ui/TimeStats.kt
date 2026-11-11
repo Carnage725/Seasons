@@ -18,15 +18,6 @@ fun List<LogEntry>.minutesByDay(): Map<LocalDate, Long> =
         .groupBy { it.date }
         .mapValues { (_, entries) -> entries.sumOf { elapsedMinutes(it.startTime!!, it.endTime!!) } }
 
-/** "Time today 45m · last 14 days 5h 20m". Null when the tracker has no stopwatch entries at all. */
-fun buildTimeLine(logs: List<LogEntry>, today: LocalDate): String? {
-    if (logs.none { it.isTimed }) return null
-    val perDay = logs.minutesByDay()
-    val todayMinutes = perDay[today] ?: 0L
-    val total = (0L..13L).sumOf { perDay[today.minusDays(it)] ?: 0L }
-    return "Time today ${formatMinutes(todayMinutes)} · last 14 days ${formatMinutes(total)}"
-}
-
 private val clockFormat = DateTimeFormatter.ofPattern("h:mm a")
 
 /** "1:19 PM" in the phone's time zone. */

@@ -328,3 +328,10 @@
 - `versionCode 4`, `versionName 1.3`. Built with `./gradlew assembleRelease`, copied to `Seasons-release/seasons-1.3.apk` (about 10.6 MB), same release key as 1.1 and 1.2 (checked with `apksigner verify`, same certificate). Same permissions, no internet. Code shrinking still off.
 - Installing over 1.1 or 1.2 keeps data (same key, higher versionCode); the database is already at version 7 from 1.2. Installing over the debug build needs the debug app uninstalled first, which deletes its data (export a JSON backup first).
 - Not installed on the phone.
+
+## Less on the tracker screen (board card: remove excess data)
+- **Removed from the tracker screen:** (1) the `49 pages left` line of a goal (only `17% completed` stays, plus the estimate line); (2) `Today 23 pages · minimum 1` above the +1 / +5 / Custom buttons; (3) `Time today 23m · last 14 days 23m` (the Time tab has the time); (4) `Current streak` and `Avg streak`.
+- **Kept on purpose (not named):** `Total <unit>` for ongoing trackers (now shown on its own line), the Recent streaks chart, the `Logging for` date row, the estimate line, and the `Need X/day` line.
+- **Goals show no stats row any more.** Home cards and the widget are unchanged (asked: tracker screen only). The widget still reads `50 left · 17%`.
+- **Code removed with them:** `TrackerSummary.todayLine`, `TrackerUiState.timeLine` and `buildTimeLine` with their tests. `TrackerSummary.streaks` (the labels) is still computed but no screen shows it now; it stays with its tests because the streak maths is shared.
+- No data change. Instrumented tests not run.
