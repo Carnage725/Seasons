@@ -1,6 +1,7 @@
 package com.seasons.app.data
 
 import androidx.room.withTransaction
+import com.seasons.app.ui.nextSortOrder
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.seasons.app.domain.dateOfEnd
@@ -32,7 +33,8 @@ class Repository(private val db: AppDatabase) {
 
     /** Creates the tracker and, if it has a band, its first band row (effective from startDate). */
     suspend fun createTracker(tracker: Tracker, lower: Double?): Long {
-        val id = trackers.insert(tracker)
+        // A new tracker joins the end of the Home list.
+        val id = trackers.insert(tracker.copy(sortOrder = nextSortOrder(trackers.sortOrders())))
         if (tracker.bandPeriod != BandPeriod.NONE && lower != null) {
             bands.insert(BandHistory(trackerId = id, effectiveFrom = tracker.startDate, lower = lower))
         }
@@ -40,6 +42,11 @@ class Repository(private val db: AppDatabase) {
     }
 
     suspend fun updateTracker(tracker: Tracker) = trackers.update(tracker)
+
+    /** Saves the Home order: the tracker at position 0 gets sortOrder 0, and so on. Other trackers are not touched. */
+    suspend fun saveOrder(orderedIds: List<Long>) = db.withTransaction {
+        orderedIds.forEachIndexed { index, id -> trackers.setSortOrder(id, index) }
+    }
 
     /** Permanent. Also deletes the tracker's logs and band history. */
     suspend fun deleteTracker(tracker: Tracker) = trackers.delete(tracker)

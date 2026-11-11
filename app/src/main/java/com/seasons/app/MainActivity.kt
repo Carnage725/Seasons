@@ -85,7 +85,6 @@ private fun AppRoot(nav: NavViewModel = viewModel()) {
                 onArchive = { nav.push(Screen.Archive) },
                 onSeasons = { nav.push(Screen.SeasonsHistory) },
                 onStopTimer = { nav.push(Screen.TimerStop()) },
-                onEditRunning = { nav.push(Screen.TimerEditRunning()) },
                 onSettings = { nav.push(Screen.Settings) },
             )
         }

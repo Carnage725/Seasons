@@ -77,6 +77,17 @@ class RepositoryTest {
         assertEquals(3.0, bands[0].lower, 0.0)
     }
 
+    @Test fun newTrackers_joinTheEndOfTheHomeOrder_andSaveOrderRenumbers() = runBlocking {
+        val a = repo.createTracker(goal().copy(name = "A"), null)
+        val b = repo.createTracker(goal().copy(name = "B"), null)
+        val c = repo.createTracker(goal().copy(name = "C"), null)
+        assertEquals(listOf("A", "B", "C"), repo.observeTrackers().first().map { it.name })
+        repo.saveOrder(listOf(c, a, b))
+        assertEquals(listOf("C", "A", "B"), repo.observeTrackers().first().map { it.name })
+        val d = repo.createTracker(goal().copy(name = "D"), null)
+        assertEquals(listOf("C", "A", "B", "D"), repo.observeTrackers().first().map { it.name })
+    }
+
     @Test fun changeBand_onTrackerWithoutBand_makesItDaily() = runBlocking {
         val id = repo.createTracker(goal(), null)
         assertEquals(BandPeriod.NONE, repo.getTracker(id)!!.bandPeriod)

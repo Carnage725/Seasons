@@ -127,6 +127,11 @@ class HomeViewModel(private val repo: Repository) : ViewModel() {
         viewModelScope.launch { repo.startTimer(trackerId) }
     }
 
+    /** Saves the order set by drag and drop on Home. */
+    fun saveOrder(ids: List<Long>) {
+        viewModelScope.launch { repo.saveOrder(ids) }
+    }
+
     /** Null while loading. */
     val rows: StateFlow<List<HomeRow>?> = repo.observeHomeRows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

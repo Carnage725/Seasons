@@ -25,6 +25,12 @@ interface TrackerDao {
     @Insert
     suspend fun insert(tracker: Tracker): Long
 
+    @Query("SELECT sortOrder FROM trackers")
+    suspend fun sortOrders(): List<Int>
+
+    @Query("UPDATE trackers SET sortOrder = :order WHERE id = :id")
+    suspend fun setSortOrder(id: Long, order: Int)
+
     @Insert
     suspend fun insertAll(trackers: List<Tracker>)
 

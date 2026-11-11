@@ -335,3 +335,12 @@
 - **Goals show no stats row any more.** Home cards and the widget are unchanged (asked: tracker screen only). The widget still reads `50 left · 17%`.
 - **Code removed with them:** `TrackerSummary.todayLine`, `TrackerUiState.timeLine` and `buildTimeLine` with their tests. `TrackerSummary.streaks` (the labels) is still computed but no screen shows it now; it stays with its tests because the streak maths is shared.
 - No data change. Instrumented tests not run.
+
+## Reorder trackers on Home by drag and drop (board card)
+- **Long press a card, then drag it up or down and let go.** The card follows the finger (slightly larger and see-through), the others slide out of the way, and the list scrolls when the card is near the top or bottom edge. Written by hand in Compose (`detectDragGesturesAfterLongPress`, `animateItem`), no new library. A short tap still opens the tracker.
+- **Saved:** on drop, `Repository.saveOrder` sets `sortOrder` 0, 1, 2, ... for the Home trackers in a transaction. **No database change** (`sortOrder` already existed and the list was already sorted by it). Archived trackers keep their old number (agreed). Backups already store `sortOrder`, so the order survives export and import.
+- **New trackers join the end of the list** (`sortOrder` = highest + 1). Before, every new tracker had 0.
+- **The widget follows the same order** (agreed): its tracker picker reads the same sorted list.
+- **Changed to make room for it:** long press on a Home card no longer edits a running timer's start, because long press now means drag. **"Edit start" is still on the tracker screen.** The Home card text is now `Running 0:12:30` (without "· hold to edit start"), and `onEditRunning` is removed from the Home screen.
+- **Pure and unit-tested:** `moveItem`, `nextSortOrder` (`ui/ReorderLogic.kt`). A repository test for saving the order and for new trackers joining the end is written; instrumented tests were **not run** (they wipe app data on the phone).
+- **Tried by hand on the phone and works.** I did not drive the drag myself (screen was off, and I did not want to reorder real trackers).

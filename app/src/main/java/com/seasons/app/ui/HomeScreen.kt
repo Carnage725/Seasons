@@ -5,6 +5,19 @@ package com.seasons.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,7 +73,6 @@ fun HomeScreen(
     onSeasons: () -> Unit,
     onSettings: () -> Unit,
     onStopTimer: () -> Unit,
-    onEditRunning: () -> Unit,
 ) {
     val rows by vm.rows.collectAsStateWithLifecycle()
     val needsSetup by vm.needsSetup.collectAsStateWithLifecycle()
@@ -92,7 +104,83 @@ fun HomeScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             val list = rows
+            // Long press a card, then drag it. While dragging (and until the database catches up) the order lives here.
+            val listState = rememberLazyListState()
+            val scope = rememberCoroutineScope()
+            val haptic = LocalHapticFeedback.current
+            val gapPx = with(LocalDensity.current) { 24.dp.toPx() }
+            var order by remember { mutableStateOf<List<Long>?>(null) }
+            var draggedId by remember { mutableStateOf<Long?>(null) }
+            var dragOffset by remember { mutableStateOf(0f) }
+            val shown = remember(list, order) {
+                val ids = order
+                if (list == null || ids == null) list else list.sortedBy { r -> ids.indexOf(r.tracker.id).let { if (it < 0) Int.MAX_VALUE else it } }
+            }
+            val shownIds by rememberUpdatedState(shown?.map { it.tracker.id }.orEmpty())
+            LaunchedEffect(list, draggedId) {
+                if (draggedId == null && order != null && list?.map { it.tracker.id } == order) order = null
+            }
             LazyColumn(
+                state = listState,
+                modifier = Modifier.pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { pos ->
+                            val hit = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                                it.key is Long && pos.y >= it.offset && pos.y < it.offset + it.size
+                            }
+                            if (hit != null) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                draggedId = hit.key as Long
+                                dragOffset = 0f
+                                order = shownIds
+                            }
+                        },
+                        onDrag = { change, amount ->
+                            val id = draggedId
+                            val ids = order
+                            if (id != null && ids != null) {
+                                change.consume()
+                                dragOffset += amount.y
+                                val infos = listState.layoutInfo.visibleItemsInfo
+                                val me = infos.firstOrNull { it.key == id }
+                                // Only act when the layout has caught up with the last swap (the header is item 0).
+                                if (me != null && me.index == ids.indexOf(id) + 1) {
+                                    val center = me.offset + dragOffset + me.size / 2f
+                                    val target = infos.firstOrNull {
+                                        it.key is Long && it.key != id && center >= it.offset && center < it.offset + it.size
+                                    }
+                                    if (target != null) {
+                                        val from = ids.indexOf(id)
+                                        val to = ids.indexOf(target.key as Long)
+                                        order = moveItem(ids, from, to)
+                                        // The card's layout position jumped by the neighbour's height; keep it under the finger.
+                                        dragOffset += if (to > from) -(target.size + gapPx) else (target.size + gapPx)
+                                    }
+                                    // Near the top or bottom edge: scroll, and keep the card under the finger.
+                                    val top = me.offset + dragOffset
+                                    val bottom = top + me.size
+                                    val layout = listState.layoutInfo
+                                    val step = when {
+                                        top < layout.viewportStartOffset + 80f -> -24f
+                                        bottom > layout.viewportEndOffset - 80f -> 24f
+                                        else -> 0f
+                                    }
+                                    if (step != 0f) scope.launch { dragOffset += listState.scrollBy(step) }
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            order?.let { vm.saveOrder(it) }
+                            draggedId = null
+                            dragOffset = 0f
+                        },
+                        onDragCancel = {
+                            draggedId = null
+                            dragOffset = 0f
+                            order = null
+                        },
+                    )
+                },
                 contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
@@ -121,10 +209,21 @@ fun HomeScreen(
                 if (list != null && list.isEmpty()) {
                     item { Text("No trackers yet.\nTap + to add one.", color = Grey1) }
                 }
-                items(list.orEmpty(), key = { it.tracker.id }) { row ->
+                items(shown.orEmpty(), key = { it.tracker.id }) { row ->
                     val id = row.tracker.id
+                    val dragging = id == draggedId
                     TrackerRow(
                         row,
+                        modifier = if (dragging) {
+                            Modifier.zIndex(1f).graphicsLayer {
+                                translationY = dragOffset
+                                alpha = 0.9f
+                                scaleX = 1.02f
+                                scaleY = 1.02f
+                            }
+                        } else {
+                            Modifier.animateItem()
+                        },
                         onClick = { onOpen(id) },
                         timerStart = running?.timer?.takeIf { it.trackerId == id }?.startTime,
                         now = now,
@@ -135,7 +234,6 @@ fun HomeScreen(
                                 else -> askStop = true
                             }
                         },
-                        onEditRunning = onEditRunning,
                     )
                 }
             }
@@ -150,28 +248,14 @@ internal fun TrackerRow(
     timerStart: Long?,
     now: Long,
     onTimer: () -> Unit,
-    onEditRunning: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val t = row.tracker
     val color = Color(t.color)
     val main = row.mainText()
 
-    val haptic = LocalHapticFeedback.current
-    // Long press edits the start of this tracker's running timer. It does nothing when no timer runs here.
-    Column(
-        Modifier.fillMaxWidth().combinedClickable(
-            onClick = onClick,
-            onLongClick = if (timerStart != null) {
-                {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onEditRunning()
-                }
-            } else {
-                null
-            },
-            onLongClickLabel = "Edit timer start",
-        ),
-    ) {
+    // Long press and drag moves the card (handled by the list). Editing a running timer's start is on the tracker screen.
+    Column(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(color))
             Spacer(Modifier.width(10.dp))
@@ -186,7 +270,7 @@ internal fun TrackerRow(
         }
         if (timerStart != null) {
             Text(
-                "Running ${formatClock(now - timerStart)} · hold to edit start",
+                "Running ${formatClock(now - timerStart)}",
                 color = color,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 20.dp),
